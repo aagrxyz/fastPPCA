@@ -24,17 +24,22 @@ void parse_args(int argc, char const *argv[])
 	bool got_genotype_file=false;
 	for (int i = 1; i < argc; i++) { 
 		if (i + 1 != argc){
-			if(argv[i] == "-g"){
+			if(strcmp(argv[i],"-g")==0){
 				strcpy(command_line_opts.GENOTYPE_FILE_PATH,argv[i+1]);
 				got_genotype_file=true;
+				i++;
 			}
-			else if(argv[i] == "-k")
+			else if(strcmp(argv[i],"-k")==0){
 				command_line_opts.num_of_evec = atoi(argv[i+1]);
-			else if(argv[i]=="-m")
+				i++;
+			}
+			else if(strcmp(argv[i],"-m")==0){
 				command_line_opts.max_iterations = atoi(argv[i+1]);
-			else if(argv[i]=="-v")
+				i++;
+			}
+			else if(strcmp(argv[i],"-v")==0)
 				command_line_opts.debugmode=true;
-			else if(argv[i]=="-a")
+			else if(strcmp(argv[i],"-a")==0)
 				command_line_opts.getaccuracy=true;
 			else{
 				cout<<"Not Enough or Invalid arguments"<<endl;
@@ -42,9 +47,13 @@ void parse_args(int argc, char const *argv[])
 				exit(-1);
 			}
 		}
+		else if(strcmp(argv[i],"-v")==0)
+			command_line_opts.debugmode=true;
+		else if(strcmp(argv[i],"-a")==0)
+			command_line_opts.getaccuracy=true;
 	}
 	if(got_genotype_file==false){
-		cout<<"Not Enough or Invalide arguments"<<endl;
+		cout<<"Genotype file missing"<<endl;
 		cout<<"Correct Usage is "<<argv[0]<<" -g <genotype file> -k <num_of_evec> -m <max_iterations> -v (for debugmode) -a (for getting accuracy)"<<endl;
 		exit(-1);
 	}

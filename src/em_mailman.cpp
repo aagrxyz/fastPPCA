@@ -112,14 +112,17 @@ int main(int argc, char const *argv[])
 	p = g.Nsnp;
 	n = g.Nindv;
 	srand((unsigned int) time(0));
-	
+	c.resize(p,k);
+	x.resize(k,n);
+	v.resize(p,k);
+
 	clock_t io_end = clock();
 
 	c = MatrixXf::Random(p,k);
 	
 	ofstream c_file;
 	if(debug){
-		c_file.open("cvals_orig.txt");
+		c_file.open("cvals_orig_mailman.txt");
 		c_file<<c<<endl;
 		c_file.close();
 		printf("Read Matrix\n");
@@ -253,11 +256,11 @@ int main(int argc, char const *argv[])
 		}
 	}
 	clock_t it_end = clock();
-	c_file.open("cvals_end.txt");
+	c_file.open("cvals_end_mailman.txt");
 	c_file<<c<<endl;
 	c_file.close();
 	ofstream x_file;
-	x_file.open("xvals.txt");
+	x_file.open("xvals_mailman.txt");
 	x_file<<x<<endl;
 	x_file.close();
 	clock_t total_end = clock();

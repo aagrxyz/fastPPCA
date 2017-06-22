@@ -115,6 +115,9 @@ int main(int argc, char const *argv[])
 	check_accuracy = command_line_opts.getaccuracy;
 	p = g.Nsnp;
 	n = g.Nindv;
+	c.resize(p,k);
+	x.resize(k,n);
+	v.resize(p,k);
 	srand((unsigned int) time(0));
 	
 	clock_t io_end = clock();
@@ -123,7 +126,7 @@ int main(int argc, char const *argv[])
 	
 	ofstream c_file;
 	if(debug){
-		c_file.open("cvals_orig.txt");
+		c_file.open("cvals_orig_naive.txt");
 		c_file<<c<<endl;
 		c_file.close();
 		printf("Read Matrix\n");
@@ -177,11 +180,11 @@ int main(int argc, char const *argv[])
 		
 	}
 	clock_t it_end = clock();
-	c_file.open("cvals_end.txt");
+	c_file.open("cvals_end_naive.txt");
 	c_file<<c<<endl;
 	c_file.close();
 	ofstream x_file;
-	x_file.open("xvals.txt");
+	x_file.open("xvals_naive.txt");
 	x_file<<x<<endl;
 	x_file.close();
 	clock_t total_end = clock();
