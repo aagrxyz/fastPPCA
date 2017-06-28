@@ -1,0 +1,263 @@
+aman@aman:~/Desktop/Intern/fast_em_pca/src$ cd ..
+aman@aman:~/Desktop/Intern/fast_em_pca$ subl .
+aman@aman:~/Desktop/Intern/fast_em_pca$ cd build/
+aman@aman:~/Desktop/Intern/fast_em_pca/build$ cd ..
+aman@aman:~/Desktop/Intern/fast_em_pca$ ll
+total 44
+drwxrwxr-x  8 aman aman 4096 Jun 22 16:08 ./
+drwxrwxr-x 15 aman aman 4096 Jun 21 20:29 ../
+drwxrwxr-x  2 aman aman 4096 Jun 22 16:08 bin/
+drwxrwxr-x  2 aman aman 4096 Jun 22 11:05 bin_old/
+drwxrwxr-x  2 aman aman 4096 Jun 22 16:08 build/
+-rw-rw-r--  1 aman aman  249 Jun 22 00:47 CMakeLists.txt
+drwxrwxr-x  8 aman aman 4096 Jun 22 00:52 .git/
+drwxrwxr-x  3 aman aman 4096 Jun 21 20:25 include/
+-rw-rw-r--  1 aman aman   80 Jun 21 20:29 README.md
+-rwxrwxr-x  1 aman aman 1581 Jun 22 16:20 run.sh*
+drwxrwxr-x  2 aman aman 4096 Jun 21 19:53 src/
+aman@aman:~/Desktop/Intern/fast_em_pca$ cd bin
+aman@aman:~/Desktop/Intern/fast_em_pca/bin$ ll
+total 8
+drwxrwxr-x 2 aman aman 4096 Jun 22 16:08 ./
+drwxrwxr-x 8 aman aman 4096 Jun 22 16:08 ../
+aman@aman:~/Desktop/Intern/fast_em_pca/bin$ cd ..
+aman@aman:~/Desktop/Intern/fast_em_pca$ cd bin_old/
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ 
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ ll
+total 784
+drwxrwxr-x 2 aman aman   4096 Jun 22 11:05 ./
+drwxrwxr-x 8 aman aman   4096 Jun 22 16:08 ../
+-rwxrwxr-x 1 aman aman 388988 Jun 22 02:10 em_mailman*
+-rwxrwxr-x 1 aman aman 378292 Jun 22 02:10 em_naive*
+-rw-rw-r-- 1 aman aman   1083 Jun 22 14:25 logfile_mailman_medium.txt
+-rw-rw-r-- 1 aman aman   1083 Jun 22 14:24 logfile_mailman_small.txt
+-rw-rw-r-- 1 aman aman    404 Jun 22 03:04 logfile_mailman.txt
+-rw-rw-r-- 1 aman aman   1083 Jun 22 14:30 logfile_naive_medium.txt
+-rw-rw-r-- 1 aman aman   1602 Jun 22 14:24 logfile_naive_small.txt
+-rw-rw-r-- 1 aman aman    405 Jun 22 04:42 logfile_naive.txt
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time (./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/big/genotype.txt -k 2 -m 20 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/big/ > logfile_mailman_big.txt) 2>> logfile_mailman_big.txt
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ ll
+total 788
+drwxrwxr-x 2 aman aman   4096 Jun 22 16:20 ./
+drwxrwxr-x 8 aman aman   4096 Jun 22 16:08 ../
+-rwxrwxr-x 1 aman aman 388988 Jun 22 02:10 em_mailman*
+-rwxrwxr-x 1 aman aman 378292 Jun 22 02:10 em_naive*
+-rw-rw-r-- 1 aman aman   1085 Jun 22 16:38 logfile_mailman_big.txt
+-rw-rw-r-- 1 aman aman   1083 Jun 22 14:25 logfile_mailman_medium.txt
+-rw-rw-r-- 1 aman aman   1083 Jun 22 14:24 logfile_mailman_small.txt
+-rw-rw-r-- 1 aman aman    404 Jun 22 03:04 logfile_mailman.txt
+-rw-rw-r-- 1 aman aman   1083 Jun 22 14:30 logfile_naive_medium.txt
+-rw-rw-r-- 1 aman aman   1602 Jun 22 14:24 logfile_naive_small.txt
+-rw-rw-r-- 1 aman aman    405 Jun 22 04:42 logfile_naive.txt
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ 
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ cat logfile_mailman_big.txt 
+Read Matrix
+Running on Dataset of 188816 SNPs and 50000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+Iteration 1 -- E Step
+Iteration 1 -- M Step
+Iteration 2 -- E Step
+Iteration 2 -- M Step
+Iteration 3 -- E Step
+Iteration 3 -- M Step
+Iteration 4 -- E Step
+Iteration 4 -- M Step
+Iteration 5 -- E Step
+Iteration 5 -- M Step
+Iteration 6 -- E Step
+Iteration 6 -- M Step
+Iteration 7 -- E Step
+Iteration 7 -- M Step
+Iteration 8 -- E Step
+Iteration 8 -- M Step
+Iteration 9 -- E Step
+Iteration 9 -- M Step
+Iteration 10 -- E Step
+Iteration 10 -- M Step
+Iteration 11 -- E Step
+Iteration 11 -- M Step
+Iteration 12 -- E Step
+Iteration 12 -- M Step
+Iteration 13 -- E Step
+Iteration 13 -- M Step
+Iteration 14 -- E Step
+Iteration 14 -- M Step
+Iteration 15 -- E Step
+Iteration 15 -- M Step
+Iteration 16 -- E Step
+Iteration 16 -- M Step
+Iteration 17 -- E Step
+Iteration 17 -- M Step
+Iteration 18 -- E Step
+Iteration 18 -- M Step
+Iteration 19 -- E Step
+Iteration 19 -- M Step
+IO Time:  597.081
+AVG Iteration Time:  22.818
+Total runtime:   1055.11
+
+real	17m58.359s
+user	17m28.596s
+sys	0m6.984s
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ 
+
+
+
+
+
+
+
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time (./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/small/genotype.txt -k 10 -m 1 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/small/ > logfile_mailman_big.txt) 2>> logfile_mailman_big.txt
+^C
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time ./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/big/genotype.txt -k 10 -m 1 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/big/
+^C
+
+real	0m11.091s
+user	0m8.240s
+sys	0m2.792s
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time ./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/small/genotype.txt -k 10 -m 1 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/temp
+Read Matrix
+Running on Dataset of 1617 SNPs and 5000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+IO Time:  0.623839
+AVG Iteration Time:  0.165375
+Total runtime:   1.02988
+
+real	0m1.055s
+user	0m1.028s
+sys	0m0.004s
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time ./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/small/genotype.txt -k 20 -m 1 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/temp
+Read Matrix
+Running on Dataset of 1617 SNPs and 5000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+IO Time:  0.524107
+AVG Iteration Time:  0.285306
+Total runtime:   1.13931
+
+real	0m1.149s
+user	0m1.132s
+sys	0m0.008s
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time ./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/small/genotype.txt -k 10 -m 20 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/temp
+Read Matrix
+Running on Dataset of 1617 SNPs and 5000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+Iteration 1 -- E Step
+Iteration 1 -- M Step
+Iteration 2 -- E Step
+Iteration 2 -- M Step
+Iteration 3 -- E Step
+Iteration 3 -- M Step
+Iteration 4 -- E Step
+Iteration 4 -- M Step
+Iteration 5 -- E Step
+Iteration 5 -- M Step
+Iteration 6 -- E Step
+Iteration 6 -- M Step
+Iteration 7 -- E Step
+Iteration 7 -- M Step
+Iteration 8 -- E Step
+Iteration 8 -- M Step
+Iteration 9 -- E Step
+Iteration 9 -- M Step
+Iteration 10 -- E Step
+Iteration 10 -- M Step
+Iteration 11 -- E Step
+Iteration 11 -- M Step
+Iteration 12 -- E Step
+Iteration 12 -- M Step
+Iteration 13 -- E Step
+Iteration 13 -- M Step
+Iteration 14 -- E Step
+Iteration 14 -- M Step
+Iteration 15 -- E Step
+Iteration 15 -- M Step
+Iteration 16 -- E Step
+Iteration 16 -- M Step
+Iteration 17 -- E Step
+Iteration 17 -- M Step
+Iteration 18 -- E Step
+Iteration 18 -- M Step
+Iteration 19 -- E Step
+Iteration 19 -- M Step
+IO Time:  0.544171
+AVG Iteration Time:  0.143934
+Total runtime:   3.5923
+
+real	0m3.610s
+user	0m3.580s
+sys	0m0.012s
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time ./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/medium/genotype.txt -k 10 -m 20 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/temp
+Read Matrix
+Running on Dataset of 16723 SNPs and 10000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+Iteration 1 -- E Step
+Iteration 1 -- M Step
+Iteration 2 -- E Step
+Iteration 2 -- M Step
+Iteration 3 -- E Step
+Iteration 3 -- M Step
+Iteration 4 -- E Step
+Iteration 4 -- M Step
+Iteration 5 -- E Step
+Iteration 5 -- M Step
+Iteration 6 -- E Step
+Iteration 6 -- M Step
+Iteration 7 -- E Step
+Iteration 7 -- M Step
+Iteration 8 -- E Step
+Iteration 8 -- M Step
+Iteration 9 -- E Step
+Iteration 9 -- M Step
+Iteration 10 -- E Step
+Iteration 10 -- M Step
+Iteration 11 -- E Step
+Iteration 11 -- M Step
+Iteration 12 -- E Step
+Iteration 12 -- M Step
+Iteration 13 -- E Step
+Iteration 13 -- M Step
+Iteration 14 -- E Step
+Iteration 14 -- M Step
+Iteration 15 -- E Step
+Iteration 15 -- M Step
+Iteration 16 -- E Step
+Iteration 16 -- M Step
+Iteration 17 -- E Step
+Iteration 17 -- M Step
+Iteration 18 -- E Step
+Iteration 18 -- M Step
+Iteration 19 -- E Step
+Iteration 19 -- M Step
+IO Time:  10.1709
+AVG Iteration Time:  2.60816
+Total runtime:   63.1337
+
+real	1m3.340s
+user	1m2.984s
+sys	0m0.160s
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ time ./em_mailman -g /home/aman/Desktop/Intern/data_em/timing_comparison/big/genotype.txt -k 10 -m 5 -v -o /home/aman/Desktop/Intern/data_em/timing_comparison/temp
+Read Matrix
+Running on Dataset of 188816 SNPs and 50000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+Iteration 1 -- E Step
+Iteration 1 -- M Step
+Iteration 2 -- E Step
+Iteration 2 -- M Step
+Iteration 3 -- E Step
+Iteration 3 -- M Step
+Iteration 4 -- E Step
+Iteration 4 -- M Step
+IO Time:  679.894
+AVG Iteration Time:  125.345
+Total runtime:   1314.66
+
+real	24m10.276s
+user	21m46.728s
+sys	0m8.292s
+aman@aman:~/Desktop/Intern/fast_em_pca/bin_old$ 

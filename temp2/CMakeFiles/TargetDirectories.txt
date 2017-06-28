@@ -1,0 +1,2 @@
+/home/aman/Desktop/Intern/fast_em_pca/temp2/CMakeFiles/em_mailman.dir
+/home/aman/Desktop/Intern/fast_em_pca/temp2/CMakeFiles/em_naive.dir

@@ -1,0 +1,49 @@
+Read Matrix
+Running on Dataset of 16723 SNPs and 10000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+Iteration 1 -- E Step
+Iteration 1 -- M Step
+Iteration 2 -- E Step
+Iteration 2 -- M Step
+Iteration 3 -- E Step
+Iteration 3 -- M Step
+Iteration 4 -- E Step
+Iteration 4 -- M Step
+Iteration 5 -- E Step
+Iteration 5 -- M Step
+Iteration 6 -- E Step
+Iteration 6 -- M Step
+Iteration 7 -- E Step
+Iteration 7 -- M Step
+Iteration 8 -- E Step
+Iteration 8 -- M Step
+Iteration 9 -- E Step
+Iteration 9 -- M Step
+Iteration 10 -- E Step
+Iteration 10 -- M Step
+Iteration 11 -- E Step
+Iteration 11 -- M Step
+Iteration 12 -- E Step
+Iteration 12 -- M Step
+Iteration 13 -- E Step
+Iteration 13 -- M Step
+Iteration 14 -- E Step
+Iteration 14 -- M Step
+Iteration 15 -- E Step
+Iteration 15 -- M Step
+Iteration 16 -- E Step
+Iteration 16 -- M Step
+Iteration 17 -- E Step
+Iteration 17 -- M Step
+Iteration 18 -- E Step
+Iteration 18 -- M Step
+Iteration 19 -- E Step
+Iteration 19 -- M Step
+IO Time:  8.06287
+AVG Iteration Time:  0.41307
+Total runtime:   16.4509
+
+real	0m16.677s
+user	0m16.360s
+sys	0m0.096s

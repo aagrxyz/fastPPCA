@@ -13,8 +13,8 @@ class genotype {
 		std::vector< std::vector<int> > q_msb;
 		std::vector< std::vector<int> > q_lsb;
 		
-		void read_genotype_mailman (char *filename);
-		void read_genotype_naive (char *filename);
+		void read_genotype_mailman (std::string filename);
+		void read_genotype_naive (std::string filename);
 		float get_geno(int snpindex,int indvindex);
 		std::vector<float> get_geno_row(int snpindex);
 		std::vector<float> get_geno_col(int indvindex);

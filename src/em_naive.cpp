@@ -3,6 +3,7 @@
 #include <Eigen/Core>
 #include <Eigen/LU>
 #include <Eigen/SVD>
+#include <Eigen/QR>
 #include "genotype.h"
 #include "helper.h"
 
@@ -13,6 +14,7 @@ clock_t total_begin = clock();
 int MAX_ITER;
 genotype g;
 int k,p,n;
+int k_orig;
 
 MatrixXf c; //(p,k)
 MatrixXf x; //(k,n)
@@ -22,6 +24,7 @@ options command_line_opts;
 
 bool debug = false;
 bool check_accuracy = false;
+double convergence_limit;
 
 MatrixXf get_evec(MatrixXf &c)
 {
@@ -101,23 +104,73 @@ MatrixXf get_reference_evec()
 	return to_return;
 }
 
+pair<double,double> get_error_norms()
+{
+	HouseholderQR<MatrixXf> qr(c);
+	MatrixXf Q;
+	Q = qr.householderQ() * MatrixXf::Identity(p,k);
+	MatrixXf q_t(k,p);
+	q_t = Q.transpose();
+	MatrixXf b(k,n);
+	for(int n_iter=0;n_iter<n;n_iter++)
+	{
+		for(int k_iter=0;k_iter<k;k_iter++)
+		{
+			float res=0;
+			for(int p_iter=0;p_iter<p;p_iter++)
+				res+= q_t(k_iter,p_iter)*(g.get_geno(p_iter,n_iter));
+			b(k_iter,n_iter)=res;
+		}
+	}
+	JacobiSVD<MatrixXf> b_svd(b, ComputeThinU | ComputeThinV);
+	MatrixXf u_l; 
+	u_l = Q * b_svd.matrixU();
+	MatrixXf v_l;
+	v_l = b_svd.matrixV();
+	MatrixXf u_k(p,k);
+	MatrixXf v_k,d_k;
+	u_k = u_l.leftCols(k_orig);
+	v_k = v_l.leftCols(k_orig);
+	d_k = MatrixXf::Zero(k_orig,k_orig);
+	for(int kk =0 ; kk < k_orig ; kk++)
+		d_k(kk,kk)  =(b_svd.singularValues())(kk);
+	// cout<<d_k<<endl;
+	MatrixXf e_temp(p,n);
+	MatrixXf e(p,n);
+	e_temp= (u_k*d_k)*(v_k.transpose()) ;
+	for(int p_iter=0;p_iter<p;p_iter++)
+	{
+		for(int n_iter=0;n_iter<n;n_iter++)
+			e(p_iter,n_iter) = g.get_geno(p_iter,n_iter) - e_temp(p_iter,n_iter);
+	}
+	double ef_norm = e.norm();
+	// JacobiSVD<MatrixXf> e_svd(e);
+	// double e2_norm = e_svd.singularValues().maxCoeff();
+
+	return make_pair(ef_norm,ef_norm);
+
+}
 
 int main(int argc, char const *argv[])
 {
 
 	clock_t io_begin = clock();
+
+	double prev_error = 0.0;
 	
 	parse_args(argc,argv);
-	g.read_genotype_naive((char*)command_line_opts.GENOTYPE_FILE_PATH);	
+	g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH);	
 	MAX_ITER =  command_line_opts.max_iterations ; 
-	k = command_line_opts.num_of_evec ;
+	k_orig = command_line_opts.num_of_evec ;
 	debug = command_line_opts.debugmode ;
 	check_accuracy = command_line_opts.getaccuracy;
+	k = k_orig + command_line_opts.l;
 	p = g.Nsnp;
 	n = g.Nindv;
 	c.resize(p,k);
 	x.resize(k,n);
 	v.resize(p,k);
+	convergence_limit = command_line_opts.convergence_limit;
 	srand((unsigned int) time(0));
 	
 	clock_t io_end = clock();
@@ -126,13 +179,13 @@ int main(int argc, char const *argv[])
 	
 	ofstream c_file;
 	if(debug){
-		c_file.open("cvals_orig_naive.txt");
+		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_orig_naive.txt")).c_str());
 		c_file<<c<<endl;
 		c_file.close();
 		printf("Read Matrix\n");
 	}
 	if(check_accuracy){
-		v = get_reference_evec(); 
+		// v = get_reference_evec(); 
 	 	printf("Computed Reference Eigen Vectors\n");	
 	}
 	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
@@ -141,8 +194,8 @@ int main(int argc, char const *argv[])
 	clock_t it_begin = clock();
 	for(int i=0;i<MAX_ITER;i++)
 	{
-		if(debug)
-			printf("Iteration %d -- E Step\n",i);
+		// if(debug)
+		// 	printf("Iteration %d -- E Step\n",i);
 		
 		MatrixXf c_temp(k,p);
 		c_temp = ((c.transpose()*c).inverse())*(c.transpose());
@@ -157,8 +210,8 @@ int main(int argc, char const *argv[])
 			}
 		}
 
-		if(debug)
-			printf("Iteration %d -- M Step\n",i);
+		// if(debug)
+		// 	printf("Iteration %d -- M Step\n",i);
 		
 		MatrixXf x_temp(n,k);
 		x_temp = (x.transpose()) * ((x*(x.transpose())).inverse());
@@ -172,19 +225,26 @@ int main(int argc, char const *argv[])
 				c(p_iter,k_iter)=res;
 			}
 		}
+
+
 		if(check_accuracy){
-			MatrixXf eigenvectors(p,k);
-			eigenvectors = get_evec(c);
-			cout<<"Iteration "<<i<<" "<<get_accuracy(eigenvectors)<<endl;	
+			// MatrixXf eigenvectors(p,k);
+			// eigenvectors = get_evec(c);
+			pair<double,double> p = get_error_norms();
+			cout<<"Iteration "<<i+1<<" "<<p.first<<endl;	
+			if( abs((p.second- prev_error))< convergence_limit)
+				break;
+			else
+				prev_error = p.second;
 		}
 		
 	}
 	clock_t it_end = clock();
-	c_file.open("cvals_end_naive.txt");
+	c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_end_naive.txt")).c_str());
 	c_file<<c<<endl;
 	c_file.close();
 	ofstream x_file;
-	x_file.open("xvals_naive.txt");
+	x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_naive.txt")).c_str());
 	x_file<<x<<endl;
 	x_file.close();
 	clock_t total_end = clock();

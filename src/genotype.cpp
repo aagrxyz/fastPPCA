@@ -3,10 +3,10 @@
 
 using namespace std;
 
-void genotype::read_genotype_naive (char *filename)
+void genotype::read_genotype_naive (std::string filename)
 {
 	FILE* fp;
-	fp= fopen(filename,"r");
+	fp= fopen(filename.c_str(),"r");
 	int j=0;
 	int i=0;
 	char ch;
@@ -57,10 +57,10 @@ void genotype::read_genotype_naive (char *filename)
 	assert(temp2==Nindv);
 }
 
-void genotype::read_genotype_mailman (char *filename)
+void genotype::read_genotype_mailman (std::string filename)
 {
 	FILE* fp;
-	fp= fopen(filename,"r");
+	fp= fopen(filename.c_str(),"r");
 	int j=0;
 	int i=0;
 	char ch;

@@ -3,7 +3,7 @@ project(EM_C++)
 
 include_directories(include)
 
-set(CMAKE_CXX_FLAGS "-O3 -march=native")
+set(CMAKE_CXX_FLAGS "-O3 -march=native -std=c++11")
 
 add_executable(em_naive src/em_naive.cpp src/genotype.cpp)
 add_executable(em_mailman src/em_mailman.cpp src/genotype.cpp)

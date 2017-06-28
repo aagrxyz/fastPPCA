@@ -1,0 +1,19 @@
+Read Matrix
+Running on Dataset of 188816 SNPs and 50000 Individuals
+Iteration 0 -- E Step
+Iteration 0 -- M Step
+Iteration 1 -- E Step
+Iteration 1 -- M Step
+Iteration 2 -- E Step
+Iteration 2 -- M Step
+Iteration 3 -- E Step
+Iteration 3 -- M Step
+Iteration 4 -- E Step
+Iteration 4 -- M Step
+IO Time:  477.971
+AVG Iteration Time:  17.5404
+Total runtime:   566.889
+
+real	9m29.375s
+user	9m22.340s
+sys	0m4.800s
