@@ -1,7 +1,8 @@
-genotype = /home/aman/Desktop/Intern/data_em/timing_comparison/small/genotype.txt 
-num_evec = 2 
-l = 2
-max_iterations = 100 
+genotype = /home/aman/Desktop/Intern/simulator/small-data/s1.geno
+num_evec = 5
+l = 3
+max_iterations = 1000 
 debug = false
 accuracy = true
-convergence_limit = 0.00001
+convergence_limit = 0.001
+output_path = /home/aman/Desktop/Intern/simulator/small-data/em/k_5

@@ -268,14 +268,16 @@ void print_vals()
 	for(int kk =0 ; kk < k_orig ; kk++)
 		eval_file << (b_svd.singularValues())(kk)<<endl;
 	eval_file.close();
-	ofstream c_file;
-	c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_mailman.txt")).c_str());
-	c_file<<c<<endl;
-	c_file.close();
-	ofstream x_file;
-	x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_mailman.txt")).c_str());
-	x_file<<x<<endl;
-	x_file.close();
+	if(debug){
+		ofstream c_file;
+		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_mailman.txt")).c_str());
+		c_file<<c<<endl;
+		c_file.close();
+		ofstream x_file;
+		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_mailman.txt")).c_str());
+		x_file<<x<<endl;
+		x_file.close();
+	}
 
 }
 

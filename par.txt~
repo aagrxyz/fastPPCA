@@ -1,0 +1,7 @@
+genotype = /home/aman/Desktop/Intern/data_em/timing_comparison/small/genotype.txt
+num_evec = 10
+l = 
+max_iterations = 1000 
+debug = false
+accuracy = true
+convergence_limit = 0.001
