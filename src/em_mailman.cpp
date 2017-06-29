@@ -16,9 +16,9 @@ genotype g;
 int k,p,n;
 int k_orig;
 
-MatrixXf c; //(p,k)
-MatrixXf x; //(k,n)
-MatrixXf v; //(p,k)
+MatrixXd c; //(p,k)
+MatrixXd x; //(k,n)
+MatrixXd v; //(p,k)
 
 options command_line_opts;
 
@@ -26,11 +26,11 @@ bool debug = false;
 bool check_accuracy = false;
 double convergence_limit;
 
-MatrixXf get_evec(MatrixXf &c)
+MatrixXd get_evec(MatrixXd &c)
 {
-	JacobiSVD<MatrixXf> svd(c, ComputeThinU | ComputeThinV);
-	MatrixXf c_orth(k,p);
-	MatrixXf data(k,n);
+	JacobiSVD<MatrixXd> svd(c, ComputeThinU | ComputeThinV);
+	MatrixXd c_orth(k,p);
+	MatrixXd data(k,n);
 	c_orth = (svd.matrixU()).transpose();
 	for(int n_iter=0;n_iter<n;n_iter++)
 	{
@@ -42,7 +42,7 @@ MatrixXf get_evec(MatrixXf &c)
 			data(k_iter,n_iter)=res;
 		}
 	}
-	MatrixXf means(k,1);
+	MatrixXd means(k,1);
 	for(int i=0;i<k;i++)
 	{
 		float sum=0.0;
@@ -50,20 +50,20 @@ MatrixXf get_evec(MatrixXf &c)
 			sum+=data(i,j);
 		means(i,0)=sum/(n*1.0);
 	}
-	data = data - (means*(MatrixXf::Constant(1,n,1)));
-	MatrixXf cov(k,k);
+	data = data - (means*(MatrixXd::Constant(1,n,1)));
+	MatrixXd cov(k,k);
 	cov = data*(data.transpose())*(1.0/(n));
-	JacobiSVD<MatrixXf> svd_cov(cov, ComputeThinU | ComputeThinV);
-	MatrixXf to_return(p,k);
+	JacobiSVD<MatrixXd> svd_cov(cov, ComputeThinU | ComputeThinV);
+	MatrixXd to_return(p,k);
 	to_return =(c_orth.transpose())*svd_cov.matrixU() ;
 	return to_return;
 }
 
 
-float get_accuracy(MatrixXf &u)
+float get_accuracy(MatrixXd &u)
 {
 	
-	MatrixXf temp(k,k);
+	MatrixXd temp(k,k);
 	temp = (u.transpose()) * v ;
 	float accuracy = 0.0;
 	for(int j=0;j<k;j++)
@@ -76,22 +76,22 @@ float get_accuracy(MatrixXf &u)
 	return (accuracy/k);
 }
 
-MatrixXf get_reference_evec()
+MatrixXd get_reference_evec()
 {
 
-	MatrixXf y_m(p,n);
+	MatrixXd y_m(p,n);
 	for(int i=0;i<p;i++)
 	{
 		for(int j=0;j<n;j++)
 			y_m(i,j) = g.get_geno(i,j);
 	}
-	MatrixXf cov(p,p);
+	MatrixXd cov(p,p);
 	printf("Calculating covariance\n");
 	cov = y_m*(y_m.transpose())*(1.0/n);
 	printf("Calculating SVD\n");
-	JacobiSVD<MatrixXf> svd_cov(cov, ComputeThinU | ComputeThinV);
-	MatrixXf to_return(p,k);
-	MatrixXf U(p,k);
+	JacobiSVD<MatrixXd> svd_cov(cov, ComputeThinU | ComputeThinV);
+	MatrixXd to_return(p,k);
+	MatrixXd U(p,k);
 	U = svd_cov.matrixU();
 	for(int i=0;i<p;i++)
 	{
@@ -103,7 +103,7 @@ MatrixXf get_reference_evec()
 }
 
 
-void multiply_y_pre(MatrixXf &op, int Ncol_op ,MatrixXf &res)
+void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res)
 {
 	double *sum_op = new double[Ncol_op];
 	double *yint_m = new double[(int)pow(2,g.segment_size_hori)];
@@ -112,7 +112,7 @@ void multiply_y_pre(MatrixXf &op, int Ncol_op ,MatrixXf &res)
 		double *y_msb = new double[g.segment_size_hori];
 		double *y_lsb = new double[g.segment_size_hori];
 		int seg_iter;
-		MatrixXf op_col(n,1);
+		MatrixXd op_col(n,1);
 		op_col = op.col(k_iter);
 		sum_op[k_iter]=op_col.sum();
 
@@ -147,10 +147,10 @@ void multiply_y_pre(MatrixXf &op, int Ncol_op ,MatrixXf &res)
 }
 
 
-void multiply_y_post(MatrixXf &op_orig, int Nrows_op, MatrixXf &res)
+void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res)
 {
 	double *yint_e = new double[(int)pow(2,g.segment_size_ver)];
-	MatrixXf op;
+	MatrixXd op;
 	op = op_orig.transpose();
 	int Ncol_op = Nrows_op;
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++)
@@ -158,7 +158,7 @@ void multiply_y_post(MatrixXf &op_orig, int Nrows_op, MatrixXf &res)
 		double *y_msb = new double[g.segment_size_ver];
 		double *y_lsb = new double[g.segment_size_ver];
 		int seg_iter;
-		MatrixXf op_col(p,1);
+		MatrixXd op_col(p,1);
 		op_col = op.col(k_iter);
 
 		for(seg_iter=0; seg_iter < g.Nsegments_ver; seg_iter++)
@@ -205,27 +205,27 @@ void multiply_y_post(MatrixXf &op_orig, int Nrows_op, MatrixXf &res)
 
 double get_error_norm()
 {
-	HouseholderQR<MatrixXf> qr(c);
-	MatrixXf Q;
-	Q = qr.householderQ() * MatrixXf::Identity(p,k);
-	MatrixXf q_t(k,p);
+	HouseholderQR<MatrixXd> qr(c);
+	MatrixXd Q;
+	Q = qr.householderQ() * MatrixXd::Identity(p,k);
+	MatrixXd q_t(k,p);
 	q_t = Q.transpose();
-	MatrixXf b(k,n);
+	MatrixXd b(k,n);
 	multiply_y_post(q_t,k,b);
-	JacobiSVD<MatrixXf> b_svd(b, ComputeThinU | ComputeThinV);
-	MatrixXf u_l; 
+	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
+	MatrixXd u_l; 
 	u_l = b_svd.matrixU();
-	MatrixXf v_l;
+	MatrixXd v_l;
 	v_l = b_svd.matrixV();
-	MatrixXf u_k(p,k);
-	MatrixXf v_k,d_k;
+	MatrixXd u_k;
+	MatrixXd v_k,d_k;
 	u_k = u_l.leftCols(k_orig);
 	v_k = v_l.leftCols(k_orig);
-	d_k = MatrixXf::Zero(k_orig,k_orig);
+	d_k = MatrixXd::Zero(k_orig,k_orig);
 	for(int kk =0 ; kk < k_orig ; kk++)
 		d_k(kk,kk)  =(b_svd.singularValues())(kk);
 
-	MatrixXf b_k;
+	MatrixXd b_k;
 	b_k = u_k * d_k * (v_k.transpose());
 	double sum_norm_temp=0.0;
 	for(int k_iter=0;k_iter<k;k_iter++)
@@ -236,6 +236,47 @@ double get_error_norm()
 	double b_knorm = b_k.norm();
 	double ef_norm = (b_knorm*b_knorm) - (2*sum_norm_temp);
 	return ef_norm;
+}
+
+void print_vals()
+{
+
+	HouseholderQR<MatrixXd> qr(c);
+	MatrixXd Q;
+	Q = qr.householderQ() * MatrixXd::Identity(p,k);
+	MatrixXd q_t(k,p);
+	q_t = Q.transpose();
+	MatrixXd b(k,n);
+	multiply_y_post(q_t,k,b);
+	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
+	MatrixXd u_l; 
+	u_l = b_svd.matrixU();
+	MatrixXd v_l;
+	v_l = b_svd.matrixV();
+	MatrixXd u_k;
+	MatrixXd v_k,d_k;
+	u_k = u_l.leftCols(k_orig);
+	v_k = v_l.leftCols(k_orig);
+	
+
+	ofstream evec_file;
+	evec_file.open((string(command_line_opts.OUTPUT_PATH)+string("evecs_mailman.txt")).c_str());
+	evec_file<< Q*u_k << endl;
+	evec_file.close();
+	ofstream eval_file;
+	eval_file.open((string(command_line_opts.OUTPUT_PATH)+string("evals_mailman.txt")).c_str());
+	for(int kk =0 ; kk < k_orig ; kk++)
+		eval_file << (b_svd.singularValues())(kk)<<endl;
+	eval_file.close();
+	ofstream c_file;
+	c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_mailman.txt")).c_str());
+	c_file<<c<<endl;
+	c_file.close();
+	ofstream x_file;
+	x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_mailman.txt")).c_str());
+	x_file<<x<<endl;
+	x_file.close();
+
 }
 
 
@@ -262,7 +303,7 @@ int main(int argc, char const *argv[])
 
 	clock_t io_end = clock();
 
-	c = MatrixXf::Random(p,k);
+	c = MatrixXd::Random(p,k);
 	
 	ofstream c_file;
 	if(debug){
@@ -283,7 +324,7 @@ int main(int argc, char const *argv[])
 		if(debug)
 			printf("Iteration %d -- E Step\n",i);
 
-		MatrixXf c_temp(p,k);
+		MatrixXd c_temp(p,k);
 		c_temp = ( (c.transpose()*c).inverse() ) * (c.transpose());
 
 		multiply_y_post(c_temp,k,x);
@@ -291,7 +332,7 @@ int main(int argc, char const *argv[])
 		if(debug)
 			printf("Iteration %d -- M Step\n",i);
 
-		MatrixXf x_temp(n,k);
+		MatrixXd x_temp(n,k);
 		x_temp = (x.transpose()) * ((x*(x.transpose())).inverse());
 
 		multiply_y_pre(x_temp,k,c);
@@ -307,13 +348,9 @@ int main(int argc, char const *argv[])
 		}
 	}
 	clock_t it_end = clock();
-	c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_end_mailman.txt")).c_str());
-	c_file<<c<<endl;
-	c_file.close();
-	ofstream x_file;
-	x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_mailman.txt")).c_str());
-	x_file<<x<<endl;
-	x_file.close();
+
+	print_vals();
+		
 	clock_t total_end = clock();
 	double io_time = double(io_end - io_begin) / CLOCKS_PER_SEC;
 	double avg_it_time = double(it_end - it_begin) / (MAX_ITER * 1.0 * CLOCKS_PER_SEC);

@@ -1,1 +1,0 @@
-/usr/bin/c++   -O3 -march=native    CMakeFiles/em_mailman.dir/src/em_mailman.cpp.o CMakeFiles/em_mailman.dir/src/genotype.cpp.o  -o em_mailman -rdynamic 

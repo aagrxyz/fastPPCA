@@ -1,7 +1,7 @@
 genotype = /home/aman/Desktop/Intern/data_em/timing_comparison/small/genotype.txt 
-num_evec = 10 
-l = 10
+num_evec = 2 
+l = 2
 max_iterations = 100 
 debug = false
 accuracy = true
-convergence_limit = 0.001
+convergence_limit = 0.00001

@@ -10,7 +10,7 @@
 
 namespace mailman {
 
-	void fastmultiply ( int m, int n, std::vector<int> &p, Eigen::MatrixXf &x, double *yint, double *y) {
+	void fastmultiply ( int m, int n, std::vector<int> &p, Eigen::MatrixXd &x, double *yint, double *y) {
 
 		memset (yint, 0, pow(2,m) * sizeof(yint));
 
