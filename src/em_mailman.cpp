@@ -267,11 +267,11 @@ void print_vals(){
 	v_k = v_l.leftCols(k_orig);
 
 	ofstream evec_file;
-	evec_file.open((string(command_line_opts.OUTPUT_PATH)+string("evecs_mailman.txt")).c_str());
+	evec_file.open((string(command_line_opts.OUTPUT_PATH)+string("evecs.txt")).c_str());
 	evec_file<< Q*u_k << endl;
 	evec_file.close();
 	ofstream eval_file;
-	eval_file.open((string(command_line_opts.OUTPUT_PATH)+string("evals_mailman.txt")).c_str());
+	eval_file.open((string(command_line_opts.OUTPUT_PATH)+string("evals.txt")).c_str());
 	for(int kk =0 ; kk < k_orig ; kk++)
 		eval_file << (b_svd.singularValues())(kk)<<endl;
 	eval_file.close();
@@ -284,11 +284,11 @@ void print_vals(){
 	x_k = d_k * (v_k.transpose());
 	if(debug){
 		ofstream c_file;
-		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_mailman.txt")).c_str());
+		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals.txt")).c_str());
 		c_file<<c<<endl;
 		c_file.close();
 		ofstream x_file;
-		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_mailman.txt")).c_str());
+		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals.txt")).c_str());
 		x_file<<x_k<<endl;
 		x_file.close();
 	}
@@ -342,7 +342,7 @@ int main(int argc, char const *argv[]){
 	
 	ofstream c_file;
 	if(debug){
-		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_orig_mailman.txt")).c_str());
+		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_orig.txt")).c_str());
 		c_file<<c<<endl;
 		c_file.close();
 		printf("Read Matrix\n");

@@ -1,8 +1,0 @@
-genotype = /home/aman/Desktop/Intern/simulator/small-data/s1.geno
-num_evec = 5
-l = 3
-max_iterations = 1000 
-debug = false
-accuracy = true
-convergence_limit = 0.001
-output_path = /home/aman/Desktop/Intern/simulator/small-data/em/k_5
