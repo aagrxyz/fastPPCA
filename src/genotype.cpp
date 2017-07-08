@@ -160,6 +160,14 @@ float genotype::get_col_mean(int snpindex)
 	return temp;
 }
 
+float genotype::get_col_std(int snpindex)
+{
+	float p_i = get_col_mean(snpindex);
+	float temp = sqrt(p_i*(1-(0.5*p_i))) ; 
+	return temp;
+}
+
+
 bool genotype::is_observed(int snpindex,int indvindex)
 {
 	if(msb[snpindex][indvindex] && lsb[snpindex][indvindex])
@@ -167,3 +175,4 @@ bool genotype::is_observed(int snpindex,int indvindex)
 	else 
 		return true;
 }
+

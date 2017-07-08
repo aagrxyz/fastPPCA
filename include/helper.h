@@ -18,6 +18,8 @@ struct options
 	int num_of_evec ;
 	bool getaccuracy ;
 	bool debugmode;
+	bool var_normalize;
+	int accelerated_em;
 	int l;
 	double convergence_limit;
 };
@@ -198,7 +200,9 @@ void parse_args(int argc, char const *argv[])
 	command_line_opts.debugmode=false;
 	command_line_opts.OUTPUT_PATH = "";
 	bool got_genotype_file=false;
+	command_line_opts.var_normalize=false;
 	command_line_opts.l=0;
+	command_line_opts.accelerated_em=0;
 	command_line_opts.convergence_limit= 0.01;
 
 	if(argc<3)
@@ -220,6 +224,9 @@ void parse_args(int argc, char const *argv[])
 		command_line_opts.OUTPUT_PATH = cfg.getValueOfKey<string>("output_path",string(""));
 		command_line_opts.GENOTYPE_FILE_PATH = cfg.getValueOfKey<string>("genotype",string(""));
 		command_line_opts.convergence_limit =cfg.getValueOfKey<double>("convergence_limit",0.01);
+		command_line_opts.var_normalize = cfg.getValueOfKey<bool>("var_normalize",false);
+		command_line_opts.accelerated_em = cfg.getValueOfKey<int>("accelerated_em",0);
+
 		
 	}
 	else
@@ -248,11 +255,17 @@ void parse_args(int argc, char const *argv[])
 				i++;
 			}
 			else if(strcmp(argv[i],"-cl")==0){
-				command_line_opts.l = atof(argv[i+1]);
+				command_line_opts.convergence_limit = atof(argv[i+1]);
+				i++;
+			}
+			else if(strcmp(argv[i],"-aem")==0){
+				command_line_opts.accelerated_em = atof(argv[i+1]);
 				i++;
 			}
 			else if(strcmp(argv[i],"-v")==0)
 				command_line_opts.debugmode=true;
+			else if(strcmp(argv[i],"-vn")==0)
+				command_line_opts.var_normalize=true;
 			else if(strcmp(argv[i],"-a")==0)
 				command_line_opts.getaccuracy=true;
 			else{
@@ -265,6 +278,8 @@ void parse_args(int argc, char const *argv[])
 			command_line_opts.debugmode=true;
 		else if(strcmp(argv[i],"-a")==0)
 			command_line_opts.getaccuracy=true;
+		else if(strcmp(argv[i],"-vn")==0)
+				command_line_opts.var_normalize=true;
 		}
 
 	}

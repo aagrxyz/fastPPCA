@@ -1,0 +1,1 @@
+/usr/bin/c++   -O3 -march=native -std=c++11    CMakeFiles/em_naive.dir/src/em_naive.cpp.o CMakeFiles/em_naive.dir/src/genotype.cpp.o  -o em_naive -rdynamic 

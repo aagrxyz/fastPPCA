@@ -24,6 +24,8 @@ options command_line_opts;
 
 bool debug = false;
 bool check_accuracy = false;
+bool var_normalize=false;
+int accelerated_em =0;
 double convergence_limit;
 
 MatrixXd get_evec(MatrixXd &c)
@@ -107,6 +109,7 @@ void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res)
 {
 	double *sum_op = new double[Ncol_op];
 	double *yint_m = new double[(int)pow(2,g.segment_size_hori)];
+
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++)
 	{
 		double *y_msb = new double[g.segment_size_hori];
@@ -135,23 +138,37 @@ void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res)
 			mailman::fastmultiply(g.segment_size_hori,g.Nindv,g.p_lsb[seg_iter],op_col,yint_m,y_lsb);
 			int p_base = seg_iter*g.segment_size_hori; 
 			for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ) 
-				c(p_iter,k_iter) = 2*y_msb[p_iter-p_base] + y_lsb[p_iter-p_base];
+				res(p_iter,k_iter) = 2*y_msb[p_iter-p_base] + y_lsb[p_iter-p_base];
 		}			
 	}
 
 	for(int p_iter=0;p_iter<p;p_iter++)
 	{
-		for(int k_iter=0;k_iter<Ncol_op;k_iter++)
+		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 			res(p_iter,k_iter) = res(p_iter,k_iter) - (g.get_col_mean(p_iter)*sum_op[k_iter]);
+			if(var_normalize)
+				res(p_iter,k_iter) = res(p_iter,k_iter)/(g.get_col_std(p_iter));
+		}
 	}	
 }
+
 
 
 void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res)
 {
 	double *yint_e = new double[(int)pow(2,g.segment_size_ver)];
+
 	MatrixXd op;
 	op = op_orig.transpose();
+
+	if(var_normalize){
+		for(int p_iter=0;p_iter<p;p_iter++)
+		{
+			for(int k_iter=0;k_iter<Nrows_op;k_iter++)
+				op(p_iter,k_iter) = op(p_iter,k_iter) / (g.get_col_std(p_iter));
+		}
+	}
+
 	int Ncol_op = Nrows_op;
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++)
 	{
@@ -203,7 +220,7 @@ void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res)
 	}
 }
 
-double get_error_norm()
+pair<double,double> get_error_norm(MatrixXd &c)
 {
 	HouseholderQR<MatrixXd> qr(c);
 	MatrixXd Q;
@@ -213,29 +230,38 @@ double get_error_norm()
 	MatrixXd b(k,n);
 	multiply_y_post(q_t,k,b);
 	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
-	MatrixXd u_l; 
+	MatrixXd u_l,d_l,v_l; 
 	u_l = b_svd.matrixU();
-	MatrixXd v_l;
 	v_l = b_svd.matrixV();
-	MatrixXd u_k;
-	MatrixXd v_k,d_k;
+	d_l = MatrixXd::Zero(k,k);
+	for(int kk=0;kk<k; kk++)
+		d_l(kk,kk) = (b_svd.singularValues())(kk);
+	
+	MatrixXd u_k,v_k,d_k;
 	u_k = u_l.leftCols(k_orig);
 	v_k = v_l.leftCols(k_orig);
 	d_k = MatrixXd::Zero(k_orig,k_orig);
 	for(int kk =0 ; kk < k_orig ; kk++)
 		d_k(kk,kk)  =(b_svd.singularValues())(kk);
 
-	MatrixXd b_k;
+	MatrixXd b_l,b_k;
+	b_l = u_l * d_l * (v_l.transpose());
 	b_k = u_k * d_k * (v_k.transpose());
-	double sum_norm_temp=0.0;
-	for(int k_iter=0;k_iter<k;k_iter++)
-	{
-		for(int n_iter=0;n_iter<n;n_iter++)
-			sum_norm_temp+= b_k(k_iter,n_iter)*b(k_iter,n_iter);
+
+	double temp_k=0.0;
+	double temp_l=0.0;
+	for(int k_iter=0;k_iter<k;k_iter++){
+		for(int n_iter=0;n_iter<n;n_iter++){
+			temp_k += b_k(k_iter,n_iter)*b(k_iter,n_iter);
+			temp_l += b_l(k_iter,n_iter)*b(k_iter,n_iter);
+		}
 	}
+
 	double b_knorm = b_k.norm();
-	double ef_norm = (b_knorm*b_knorm) - (2*sum_norm_temp);
-	return ef_norm;
+	double b_lnorm = b_l.norm();
+	double norm_k = (b_knorm*b_knorm) - (2*temp_k);
+	double norm_l = (b_lnorm*b_lnorm) - (2*temp_l);	
+	return make_pair(norm_k,norm_l);
 }
 
 void print_vals()
@@ -268,6 +294,13 @@ void print_vals()
 	for(int kk =0 ; kk < k_orig ; kk++)
 		eval_file << (b_svd.singularValues())(kk)<<endl;
 	eval_file.close();
+
+	d_k = MatrixXd::Zero(k_orig,k_orig);
+	for(int kk =0 ; kk < k_orig ; kk++)
+		d_k(kk,kk)  =(b_svd.singularValues())(kk);
+
+	MatrixXd x_k;
+	x_k = d_k * (v_k.transpose());
 	if(debug){
 		ofstream c_file;
 		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_mailman.txt")).c_str());
@@ -275,25 +308,43 @@ void print_vals()
 		c_file.close();
 		ofstream x_file;
 		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_mailman.txt")).c_str());
-		x_file<<x<<endl;
+		x_file<<x_k<<endl;
 		x_file.close();
 	}
 
 }
 
-
-int main(int argc, char const *argv[])
+MatrixXd run_EM(MatrixXd &c_orig)
 {
-	clock_t io_begin = clock();
+	MatrixXd c_temp(k,p);
+	MatrixXd c_new(p,k);
+	c_temp = ( (c_orig.transpose()*c_orig).inverse() ) * (c_orig.transpose());
 
-	double prev_error = 0.0;
-	
+	MatrixXd x_fn(k,n);
+	multiply_y_post(c_temp,k,x_fn);
+
+	MatrixXd x_temp(n,k);
+	x_temp = (x_fn.transpose()) * ((x_fn*(x_fn.transpose())).inverse());
+
+	multiply_y_pre(x_temp,k,c_new);
+	return c_new;
+}
+
+
+int main(int argc, char const *argv[]){
+	clock_t io_begin = clock();
+	pair<double,double> prev_error = make_pair(0.0,0.0);
+	double prevnll=0.0;
+
 	parse_args(argc,argv);
+
 	g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH);	
 	MAX_ITER =  command_line_opts.max_iterations ; 
 	k_orig = command_line_opts.num_of_evec ;
 	debug = command_line_opts.debugmode ;
 	check_accuracy = command_line_opts.getaccuracy;
+	var_normalize = command_line_opts.var_normalize;
+	accelerated_em = command_line_opts.accelerated_em;
 	k = k_orig + command_line_opts.l;
 	p = g.Nsnp;
 	n = g.Nindv;
@@ -316,38 +367,52 @@ int main(int argc, char const *argv[])
 	}
 
 	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
+	cout<<"accelerated_em  "<<accelerated_em<<endl;
+	cout<<"Vairance_normalize  "<<var_normalize<<endl;
 
 	if(check_accuracy)
 		cout<<endl<<"Iterations vs accuracy"<<endl;
 	
 	clock_t it_begin = clock();
-	for(int i=0;i<MAX_ITER;i++)
-	{
-		if(debug)
-			printf("Iteration %d -- E Step\n",i);
-
-		MatrixXd c_temp(p,k);
-		c_temp = ( (c.transpose()*c).inverse() ) * (c.transpose());
-
-		multiply_y_post(c_temp,k,x);
-		
-		if(debug)
-			printf("Iteration %d -- M Step\n",i);
-
-		MatrixXd x_temp(n,k);
-		x_temp = (x.transpose()) * ((x*(x.transpose())).inverse());
-
-		multiply_y_pre(x_temp,k,c);
-
-		if(check_accuracy){
-
-			double e = get_error_norm();
-			cout<<"Iteration "<<i+1<<" "<<e<<"  "<<abs(e-prev_error)<<endl;
-			if( abs((e- prev_error))< convergence_limit)
-				break;
-			else
-				prev_error = e;
+	for(int i=0;i<MAX_ITER;i++){
+		MatrixXd c1,c2,cint,r,v;
+		double a,nll;
+		if(accelerated_em!=0){
+			c1 = run_EM(c);
+			c2 = run_EM(c1);
+			r = c1-c;
+			v = (c2-c1) - r;
+			a = -1.0 * r.norm() / (v.norm()) ;
+			if(accelerated_em==1){
+				if(a>-1){
+					a=-1;
+					cint=c2;
+				}
+				else {
+					cint = c - 2*a*r + a*a*v;
+					nll = get_error_norm(cint).second;
+					if(i>0){
+						while(nll>prevnll && a<-1){
+							a = 0.5 * (a-1);
+							cint = c - 2*a*r +(a*a*v);
+							nll = get_error_norm(cint).second;
+						}
+					}
+				}
+				c = cint;
+			}
+			else if(accelerated_em==2){
+				cint = c - 2*a*r + a*a*v;
+				c = run_EM(cint);				
+			}
 		}
+		else
+			c = run_EM(c);
+
+		pair<double,double> e = get_error_norm(c);
+		prevnll = e.second;
+		cout<<"Iteration "<<i+1<<"  "<<prev_error.first - e.first<<"  "<<prev_error.second - e.second<<endl;
+		prev_error = e;
 	}
 	clock_t it_end = clock();
 

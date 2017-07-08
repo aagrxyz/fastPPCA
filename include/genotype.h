@@ -20,6 +20,8 @@ class genotype {
 		std::vector<float> get_geno_col(int indvindex);
 		float get_col_mean(int snpindex);
 
+		float get_col_std(int snpindex);
+
 		bool is_observed(int snpindex,int indvindex);
 		
 

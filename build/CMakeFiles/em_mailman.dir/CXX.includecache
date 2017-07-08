@@ -1096,3 +1096,9 @@ mailman.h
 helper.h
 /home/aman/Desktop/Intern/fast_em_pca/src/helper.h
 
+/home/aman/Desktop/Intern/fast_em_pca/src/genotype.cpp
+bits/stdc++.h
+-
+genotype.h
+/home/aman/Desktop/Intern/fast_em_pca/src/genotype.h
+
