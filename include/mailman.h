@@ -48,7 +48,6 @@ namespace mailman {
 			y[j] = c;
 		}
 
-
 	}
 
 }

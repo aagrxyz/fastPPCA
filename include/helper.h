@@ -10,8 +10,8 @@
 
 using namespace std;
 
-struct options
-{
+struct options{
+
 	std::string GENOTYPE_FILE_PATH;
 	std::string OUTPUT_PATH;
 	int max_iterations ; 
@@ -24,11 +24,21 @@ struct options
 	double convergence_limit;
 };
 
+template<typename T, typename U>
+struct is_same {
+    static const bool value = false; 
+};
+
+template<typename T>
+struct is_same<T,T> { 
+   static const bool value = true; 
+};
+
+
 extern options command_line_opts;
 
 
-void exitWithError(const std::string &error) 
-{
+void exitWithError(const std::string &error) {
 	std::cout << error;
 	std::cin.ignore();
 	std::cin.get();
@@ -36,62 +46,51 @@ void exitWithError(const std::string &error)
 	exit(EXIT_FAILURE);
 }
 
-class Convert
-{
+class Convert{
 public:
 	template <typename T>
-	static std::string T_to_string(T const &val) 
-	{
+	static std::string T_to_string(T const &val){
 		std::ostringstream ostr;
 		ostr << val;
-
 		return ostr.str();
 	}
 		
 	template <typename T>
-	static T string_to_T(std::string const &val) 
-	{
+	static T string_to_T(std::string const &val){
 		std::istringstream istr(val);
 		T returnVal;
-		if(std::is_same<T,bool>::value)
-		{
+		if(is_same<T,bool>::value){
 			if (!(istr >> std::boolalpha >> returnVal))
 				exitWithError("CFG: Not a valid bool received!\n");
 			return returnVal;
 		}
-		else
-		{
+		else{
 			if (!(istr >> returnVal))
 				exitWithError("CFG: Not a valid " + (std::string)typeid(T).name() + " received!\n");
 			return returnVal;
 		}
 	}
 
-	static std::string string_to_T(std::string const &val)
-	{
+	static std::string string_to_T(std::string const &val){
 		return val;
 	}
 };
 
 
-class ConfigFile
-{
+class ConfigFile{
 private:
 	std::map<std::string, std::string> contents;
 	std::string fName;
 
-	void removeComment(std::string &line) const
-	{
+	void removeComment(std::string &line) const{
 		if (line.find('#') != line.npos)
 			line.erase(line.find('#'));
 	}
 
-	bool onlyWhitespace(const std::string &line) const
-	{
+	bool onlyWhitespace(const std::string &line) const{
 		return (line.find_first_not_of(' ') == line.npos);
 	}
-	bool validLine(const std::string &line) const
-	{
+	bool validLine(const std::string &line) const{
 		std::string temp = line;
 		temp.erase(0, temp.find_first_not_of("\t "));
 		if (temp[0] == '=')
@@ -104,21 +103,18 @@ private:
 		return false;
 	}
 
-	void extractKey(std::string &key, size_t const &sepPos, const std::string &line) const
-	{
+	void extractKey(std::string &key, size_t const &sepPos, const std::string &line) const{
 		key = line.substr(0, sepPos);
 		if (key.find('\t') != line.npos || key.find(' ') != line.npos)
 			key.erase(key.find_first_of("\t "));
 	}
-	void extractValue(std::string &value, size_t const &sepPos, const std::string &line) const
-	{
+	void extractValue(std::string &value, size_t const &sepPos, const std::string &line) const{
 		value = line.substr(sepPos + 1);
 		value.erase(0, value.find_first_not_of("\t "));
 		value.erase(value.find_last_not_of("\t ") + 1);
 	}
 
-	void extractContents(const std::string &line) 
-	{
+	void extractContents(const std::string &line){
 		std::string temp = line;
 		temp.erase(0, temp.find_first_not_of("\t "));
 		size_t sepPos = temp.find('=');
@@ -133,8 +129,7 @@ private:
 			exitWithError("CFG: Can only have unique key names!\n");
 	}
 
-	void parseLine(const std::string &line, size_t const lineNo)
-	{
+	void parseLine(const std::string &line, size_t const lineNo){
 		if (line.find('=') == line.npos)
 			exitWithError("CFG: Couldn't find separator on line: " + Convert::T_to_string(lineNo) + "\n");
 
@@ -144,8 +139,7 @@ private:
 		extractContents(line);
 	}
 
-	void ExtractKeys()
-	{
+	void ExtractKeys(){
 		std::ifstream file;
 		file.open(fName.c_str());
 		if (!file)
@@ -153,8 +147,7 @@ private:
 
 		std::string line;
 		size_t lineNo = 0;
-		while (std::getline(file, line))
-		{
+		while (std::getline(file, line)){
 			lineNo++;
 			std::string temp = line;
 
@@ -171,20 +164,17 @@ private:
 		file.close();
 	}
 public:
-	ConfigFile(const std::string &fName)
-	{
+	ConfigFile(const std::string &fName){
 		this->fName = fName;
 		ExtractKeys();
 	}
 
-	bool keyExists(const std::string &key) const
-	{
+	bool keyExists(const std::string &key) const{
 		return contents.find(key) != contents.end();
 	}
 
 	template <typename ValueType>
-	ValueType getValueOfKey(const std::string &key, ValueType const &defaultValue = ValueType()) const
-	{
+	ValueType getValueOfKey(const std::string &key, ValueType const &defaultValue = ValueType()) const{
 		if (!keyExists(key))
 			return defaultValue;
 
@@ -192,21 +182,21 @@ public:
 	}
 };
 
-void parse_args(int argc, char const *argv[])
-{
-	command_line_opts.max_iterations=100;
+void parse_args(int argc, char const *argv[]){
+	
+	// Setting Default Values
+	command_line_opts.max_iterations=20;
 	command_line_opts.num_of_evec=2;
 	command_line_opts.getaccuracy=false;
 	command_line_opts.debugmode=false;
 	command_line_opts.OUTPUT_PATH = "";
 	bool got_genotype_file=false;
 	command_line_opts.var_normalize=false;
-	command_line_opts.l=0;
+	command_line_opts.l=2;
 	command_line_opts.accelerated_em=0;
 	command_line_opts.convergence_limit= 0.01;
 
-	if(argc<3)
-	{
+	if(argc<3){
 		cout<<"Correct Usage is "<<argv[0]<<" -p <parameter file>"<<endl;
 		exit(-1);
 	}
@@ -227,10 +217,8 @@ void parse_args(int argc, char const *argv[])
 		command_line_opts.var_normalize = cfg.getValueOfKey<bool>("var_normalize",false);
 		command_line_opts.accelerated_em = cfg.getValueOfKey<int>("accelerated_em",0);
 
-		
 	}
-	else
-	{
+	else{
 		for (int i = 1; i < argc; i++) { 
 		if (i + 1 != argc){
 			if(strcmp(argv[i],"-g")==0){

@@ -24,18 +24,17 @@ options command_line_opts;
 
 bool debug = false;
 bool check_accuracy = false;
+bool var_normalize=false;
+int accelerated_em=0;
 double convergence_limit;
 
-MatrixXd get_evec(MatrixXd &c)
-{
+MatrixXd get_evec(MatrixXd &c){
 	JacobiSVD<MatrixXd> svd(c, ComputeThinU | ComputeThinV);
 	MatrixXd c_orth(k,p);
 	MatrixXd data(k,n);
 	c_orth = (svd.matrixU()).transpose();
-	for(int n_iter=0;n_iter<n;n_iter++)
-	{
-		for(int k_iter=0;k_iter<k;k_iter++)
-		{
+	for(int n_iter=0;n_iter<n;n_iter++){
+		for(int k_iter=0;k_iter<k;k_iter++){
 			float res=0;
 			for(int p_iter=0;p_iter<p;p_iter++)
 				res+= c_orth(k_iter,p_iter)*(g.get_geno(p_iter,n_iter));
@@ -43,8 +42,7 @@ MatrixXd get_evec(MatrixXd &c)
 		}
 	}
 	MatrixXd means(k,1);
-	for(int i=0;i<k;i++)
-	{
+	for(int i=0;i<k;i++){
 		float sum=0.0;
 		for(int j=0;j<n;j++)
 			sum+=data(i,j);
@@ -60,14 +58,12 @@ MatrixXd get_evec(MatrixXd &c)
 }
 
 
-float get_accuracy(MatrixXd &u)
-{
+float get_accuracy(MatrixXd &u){
 	
 	MatrixXd temp(k,k);
 	temp = (u.transpose()) * v ;
 	float accuracy = 0.0;
-	for(int j=0;j<k;j++)
-	{
+	for(int j=0;j<k;j++){
 		float sum=0.0;
 		for(int i=0;i<k;i++)
 			sum += temp(i,j)*temp(i,j);
@@ -80,8 +76,7 @@ MatrixXd get_reference_evec()
 {
 
 	MatrixXd y_m(p,n);
-	for(int i=0;i<p;i++)
-	{
+	for(int i=0;i<p;i++){
 		for(int j=0;j<n;j++)
 			y_m(i,j) = g.get_geno(i,j);
 	}
@@ -95,8 +90,7 @@ MatrixXd get_reference_evec()
 	MatrixXd to_return(p,k);
 	MatrixXd U(p,k);
 	U = svd_cov.matrixU();
-	for(int i=0;i<p;i++)
-	{
+	for(int i=0;i<p;i++){
 		for(int j=0;j<k;j++)
 			to_return(i,j) = U(i,j);
 	}

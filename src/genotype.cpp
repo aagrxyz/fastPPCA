@@ -3,8 +3,7 @@
 
 using namespace std;
 
-void genotype::read_genotype_naive (std::string filename)
-{
+void genotype::read_genotype_naive (std::string filename){
 	FILE* fp;
 	fp= fopen(filename.c_str(),"r");
 	int j=0;
@@ -13,10 +12,9 @@ void genotype::read_genotype_naive (std::string filename)
 	vector <bool> m;
 	vector <bool> l;
 	int sum=0;
-	int temp1,temp2;
-	int rd = fscanf(fp,"%d %d\n",&temp1,&temp2);
-    do
-    {
+	int snp_file,indv_file;
+	int rd = fscanf(fp,"%d %d\n",&snp_file,&indv_file);
+    do{
 		int rd = fscanf(fp,"%c",&ch);
 		if(ch=='\n'){
 			i++;
@@ -53,12 +51,11 @@ void genotype::read_genotype_naive (std::string filename)
 	}while(!feof(fp));
 	Nsnp = msb.size()-1;
 	Nindv = msb[0].size();
-	assert(temp1==Nsnp);
-	assert(temp2==Nindv);
+	assert(snp_file==Nsnp);
+	assert(indv_file==Nindv);
 }
 
-void genotype::read_genotype_mailman (std::string filename)
-{
+void genotype::read_genotype_mailman (std::string filename){
 	FILE* fp;
 	fp= fopen(filename.c_str(),"r");
 	int j=0;
@@ -73,9 +70,7 @@ void genotype::read_genotype_mailman (std::string filename)
 	p.resize(Nsegments_hori,std::vector<int>(Nindv));
 	q.resize(Nsegments_ver,std::vector<int>(Nsnp));
 	int sum=0;
-
-    do
-    {
+    do{
 		int rd = fscanf(fp,"%c",&ch);
 		if(ch=='\n'){
 			i++;
@@ -112,8 +107,7 @@ void genotype::read_genotype_mailman (std::string filename)
 	i--;
 }
 
-float genotype::get_geno(int snpindex,int indvindex)
-{
+float genotype::get_geno(int snpindex,int indvindex){
 	float m = msb[snpindex][indvindex];
 	float l = lsb[snpindex][indvindex];
 	if ((m*2+l)==3.0)
@@ -122,12 +116,10 @@ float genotype::get_geno(int snpindex,int indvindex)
 		return ( (m*2.0+l) - get_col_mean(snpindex));
 }
 
-vector<float> genotype::get_geno_row(int snpindex)
-{
+vector<float> genotype::get_geno_row(int snpindex){
 	vector<float> v;
 	float mean = get_col_mean(snpindex);
-	for(int i=0;i<msb[snpindex].size();i++)
-	{
+	for(int i=0;i<msb[snpindex].size();i++){
 		float m = msb[snpindex][i];
 		float l = lsb[snpindex][i];
 		v.push_back((m*2.0+l)-mean);
@@ -135,11 +127,9 @@ vector<float> genotype::get_geno_row(int snpindex)
 	return v;
 }
 
-vector<float> genotype::get_geno_col(int indvindex)
-{
+vector<float> genotype::get_geno_col(int indvindex){
 	vector<float> v;
-	for(int i=0;i<Nsnp;i++)
-	{
+	for(int i=0;i<Nsnp;i++){
 		float m = msb[i][indvindex];
 		float l = lsb[i][indvindex];
 		v.push_back((m*2.0+l)-get_col_mean(i));
@@ -147,22 +137,19 @@ vector<float> genotype::get_geno_col(int indvindex)
 	return v;
 }
 
-float genotype::get_col_mean(int snpindex)
-{
+float genotype::get_col_mean(int snpindex){
 	float temp = columnsum[snpindex]*1.0 / Nindv ;
 	return temp;
 }
 
-float genotype::get_col_std(int snpindex)
-{
+float genotype::get_col_std(int snpindex){
 	float p_i = get_col_mean(snpindex);
 	float temp = sqrt(p_i*(1-(0.5*p_i))) ; 
 	return temp;
 }
 
 
-bool genotype::is_observed(int snpindex,int indvindex)
-{
+bool genotype::is_observed(int snpindex,int indvindex){
 	if(msb[snpindex][indvindex] && lsb[snpindex][indvindex])
 		return false;
 	else 
