@@ -8,11 +8,10 @@ class genotype {
 	std::vector<int> columnsum;
 	public:
 		int Nsnp,Nindv,Nsegments_hori,segment_size_hori,segment_size_ver,Nsegments_ver;
-		std::vector< std::vector<int> > p_msb;
-		std::vector< std::vector<int> > p_lsb;
-		std::vector< std::vector<int> > q_msb;
-		std::vector< std::vector<int> > q_lsb;
+		std::vector< std::vector<int> > p;
+		std::vector< std::vector<int> > q;
 		
+
 		void read_genotype_mailman (std::string filename);
 		void read_genotype_naive (std::string filename);
 		float get_geno(int snpindex,int indvindex);

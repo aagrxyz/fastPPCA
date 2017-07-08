@@ -28,6 +28,7 @@ bool var_normalize=false;
 int accelerated_em =0;
 double convergence_limit;
 
+/* Redundant Functions 
 MatrixXd get_evec(MatrixXd &c)
 {
 	JacobiSVD<MatrixXd> svd(c, ComputeThinU | ComputeThinV);
@@ -60,7 +61,6 @@ MatrixXd get_evec(MatrixXd &c)
 	to_return =(c_orth.transpose())*svd_cov.matrixU() ;
 	return to_return;
 }
-
 
 float get_accuracy(MatrixXd &u)
 {
@@ -104,16 +104,17 @@ MatrixXd get_reference_evec()
 	return to_return;
 }
 
+*/
+
 
 void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res)
 {
 	double *sum_op = new double[Ncol_op];
-	double *yint_m = new double[(int)pow(2,g.segment_size_hori)];
+	double *yint_m = new double[(int)pow(3,g.segment_size_hori)];
 
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++)
 	{
-		double *y_msb = new double[g.segment_size_hori];
-		double *y_lsb = new double[g.segment_size_hori];
+		double *y = new double[g.segment_size_hori];
 		int seg_iter;
 		MatrixXd op_col(n,1);
 		op_col = op.col(k_iter);
@@ -125,20 +126,17 @@ void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res)
 			{
 				if(g.Nsnp%g.segment_size_hori!=0)
 				{
-					double *y_msb_final = new double[g.Nsnp%g.segment_size_hori];
-					double *y_lsb_final = new double[g.Nsnp%g.segment_size_hori];
-					mailman::fastmultiply(g.Nsnp%g.segment_size_hori,g.Nindv,g.p_msb[seg_iter],op_col,yint_m,y_msb_final);
-					mailman::fastmultiply(g.Nsnp%g.segment_size_hori,g.Nindv,g.p_lsb[seg_iter],op_col,yint_m,y_lsb_final);
+					double *y_final = new double[g.Nsnp%g.segment_size_hori];
+					mailman::fastmultiply2(g.Nsnp%g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y_final);
 					for(int p_iter=seg_iter*g.segment_size_hori;p_iter<seg_iter*g.segment_size_hori + g.Nsnp%g.segment_size_hori  && p_iter<g.Nsnp;p_iter++)
-						res(p_iter,k_iter) = 2*y_msb_final[p_iter-(seg_iter*g.segment_size_hori)] + y_lsb_final[p_iter-(seg_iter*g.segment_size_hori)];
+						res(p_iter,k_iter) = y_final[p_iter-(seg_iter*g.segment_size_hori)];
 					break;
 				}
 			}
-			mailman::fastmultiply(g.segment_size_hori,g.Nindv,g.p_msb[seg_iter],op_col,yint_m,y_msb);
-			mailman::fastmultiply(g.segment_size_hori,g.Nindv,g.p_lsb[seg_iter],op_col,yint_m,y_lsb);
+			mailman::fastmultiply2(g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y);
 			int p_base = seg_iter*g.segment_size_hori; 
 			for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ) 
-				res(p_iter,k_iter) = 2*y_msb[p_iter-p_base] + y_lsb[p_iter-p_base];
+				res(p_iter,k_iter) = y[p_iter-p_base];
 		}			
 	}
 
@@ -156,7 +154,7 @@ void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res)
 
 void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res)
 {
-	double *yint_e = new double[(int)pow(2,g.segment_size_ver)];
+	double *yint_e = new double[(int)pow(3,g.segment_size_ver)];
 
 	MatrixXd op;
 	op = op_orig.transpose();
@@ -172,8 +170,7 @@ void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res)
 	int Ncol_op = Nrows_op;
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++)
 	{
-		double *y_msb = new double[g.segment_size_ver];
-		double *y_lsb = new double[g.segment_size_ver];
+		double *y = new double[g.segment_size_ver];
 		int seg_iter;
 		MatrixXd op_col(p,1);
 		op_col = op.col(k_iter);
@@ -184,21 +181,18 @@ void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res)
 			{
 				if(g.Nindv%g.segment_size_ver!=0)
 				{
-					double *y_msb_final = new double[g.Nindv%g.segment_size_ver];
-					double *y_lsb_final = new double[g.Nindv%g.segment_size_ver];
-					mailman::fastmultiply(g.Nindv%g.segment_size_ver,g.Nsnp,g.q_msb[seg_iter],op_col,yint_e,y_msb_final);
-					mailman::fastmultiply(g.Nindv%g.segment_size_ver,g.Nsnp,g.q_lsb[seg_iter],op_col,yint_e,y_lsb_final);
+					double *y_final = new double[g.Nindv%g.segment_size_ver];
+					mailman::fastmultiply2(g.Nindv%g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y_final);
 					for(int n_iter=seg_iter*g.segment_size_ver ; n_iter<seg_iter*g.segment_size_ver + g.Nindv%g.segment_size_ver  && n_iter<g.Nindv ; n_iter++)
-						res(k_iter,n_iter) = 2*y_msb_final[n_iter-(seg_iter*g.segment_size_ver)] + y_lsb_final[n_iter-(seg_iter*g.segment_size_ver)];
+						res(k_iter,n_iter) = y_final[n_iter-(seg_iter*g.segment_size_ver)];
 					break;
 				}
 
 			}
-			mailman::fastmultiply(g.segment_size_ver,g.Nsnp,g.q_msb[seg_iter],op_col,yint_e,y_msb);
-			mailman::fastmultiply(g.segment_size_ver,g.Nsnp,g.q_lsb[seg_iter],op_col,yint_e,y_lsb);
+			mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y);
 			int n_base = seg_iter*g.segment_size_ver; 
 			for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++ ) 
-				res(k_iter,n_iter) = 2*y_msb[n_iter-n_base] + y_lsb[n_iter-n_base];
+				res(k_iter,n_iter) = y[n_iter-n_base];
 
 		}
 	}
@@ -308,7 +302,7 @@ void print_vals()
 		c_file.close();
 		ofstream x_file;
 		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals_mailman.txt")).c_str());
-		x_file<<x_k<<endl;
+		x_file<<x<<endl;
 		x_file.close();
 	}
 
@@ -367,8 +361,7 @@ int main(int argc, char const *argv[]){
 	}
 
 	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
-	cout<<"accelerated_em  "<<accelerated_em<<endl;
-	cout<<"Vairance_normalize  "<<var_normalize<<endl;
+	cout<<"accelerated em is "<<accelerated_em<<endl;
 
 	if(check_accuracy)
 		cout<<endl<<"Iterations vs accuracy"<<endl;
@@ -406,8 +399,9 @@ int main(int argc, char const *argv[]){
 				c = run_EM(cint);				
 			}
 		}
-		else
+		else{
 			c = run_EM(c);
+		}
 
 		pair<double,double> e = get_error_norm(c);
 		prevnll = e.second;

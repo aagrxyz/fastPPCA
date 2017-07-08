@@ -66,14 +66,12 @@ void genotype::read_genotype_mailman (std::string filename)
 	char ch;
 	// Calculating the sizes and other stuff for genotype matrix
 	int rd = fscanf(fp,"%d %d\n",&Nsnp,&Nindv);
-	segment_size_hori = ceil(log2(Nindv));
-	segment_size_ver = ceil(log2(Nsnp));
+	segment_size_hori = ceil(log(Nindv)/log(3));
+	segment_size_ver = ceil(log(Nsnp)/log(3));
 	Nsegments_hori = ceil(Nsnp*1.0/(segment_size_hori*1.0));
 	Nsegments_ver = ceil(Nindv*1.0/(segment_size_ver*1.0));
-	p_msb.resize(Nsegments_hori,std::vector<int>(Nindv));
-	p_lsb.resize(Nsegments_hori,std::vector<int>(Nindv));
-	q_msb.resize(Nsegments_ver,std::vector<int>(Nsnp));
-	q_lsb.resize(Nsegments_ver,std::vector<int>(Nsnp));
+	p.resize(Nsegments_hori,std::vector<int>(Nindv));
+	q.resize(Nsegments_ver,std::vector<int>(Nsnp));
 	int sum=0;
 
     do
@@ -90,24 +88,19 @@ void genotype::read_genotype_mailman (std::string filename)
 			int horiz_seg_no = i/segment_size_hori ;
 			int ver_seg_no = j/segment_size_ver ;
 			if(val==0){
-				p_msb[horiz_seg_no][j] = 2 * p_msb[horiz_seg_no][j] ;
-				p_lsb[horiz_seg_no][j] = 2 * p_lsb[horiz_seg_no][j] ;
-				q_msb[ver_seg_no][i] = 2 * q_msb[ver_seg_no][i] ; 
-				q_lsb[ver_seg_no][i] = 2 * q_lsb[ver_seg_no][i] ;
+				p[horiz_seg_no][j] = 3 * p[horiz_seg_no][j] ;
+				q[ver_seg_no][i] = 3 * q[ver_seg_no][i];
 			}
 			else if(val==1){
 				sum+=1;
-				p_msb[horiz_seg_no][j] = 2 * p_msb[horiz_seg_no][j] ;
-				p_lsb[horiz_seg_no][j] = 2 * p_lsb[horiz_seg_no][j] + 1  ;
-				q_msb[ver_seg_no][i] = 2 * q_msb[ver_seg_no][i] ; 
-				q_lsb[ver_seg_no][i] = 2 * q_lsb[ver_seg_no][i] + 1 ;
+
+				p[horiz_seg_no][j] = 3 * p[horiz_seg_no][j]  + 1;
+				q[ver_seg_no][i] = 3*q[ver_seg_no][i] + 1;
 			}
 			else if(val==2){
 				sum+=2;
-				p_msb[horiz_seg_no][j] = 2 * p_msb[horiz_seg_no][j] + 1 ;
-				p_lsb[horiz_seg_no][j] = 2 * p_lsb[horiz_seg_no][j] ;
-				q_msb[ver_seg_no][i] = 2 * q_msb[ver_seg_no][i]  + 1 ; 
-				q_lsb[ver_seg_no][i] = 2 * q_lsb[ver_seg_no][i] ;
+				p[horiz_seg_no][j] = 3 * p[horiz_seg_no][j] + 2 ;
+				q[ver_seg_no][i] = 3*q[ver_seg_no][i] + 2;
 			}
 			else{
 				cout<<"Invalid entry in Genotype Matrix"<<endl;
