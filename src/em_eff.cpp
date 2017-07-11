@@ -35,84 +35,6 @@ bool var_normalize=false;
 int accelerated_em=0;
 double convergence_limit;
 
-/* Redundant Functions 
-MatrixXd get_evec(MatrixXd &c)
-{
-	JacobiSVD<MatrixXd> svd(c, ComputeThinU | ComputeThinV);
-	MatrixXd c_orth(k,p);
-	MatrixXd data(k,n);
-	c_orth = (svd.matrixU()).transpose();
-	for(int n_iter=0;n_iter<n;n_iter++)
-	{
-		for(int k_iter=0;k_iter<k;k_iter++)
-		{
-			float res=0;
-			for(int p_iter=0;p_iter<p;p_iter++)
-				res+= c_orth(k_iter,p_iter)*(g.get_geno(p_iter,n_iter));
-			data(k_iter,n_iter)=res;
-		}
-	}
-	MatrixXd means(k,1);
-	for(int i=0;i<k;i++)
-	{
-		float sum=0.0;
-		for(int j=0;j<n;j++)
-			sum+=data(i,j);
-		means(i,0)=sum/(n*1.0);
-	}
-	data = data - (means*(MatrixXd::Constant(1,n,1)));
-	MatrixXd cov(k,k);
-	cov = data*(data.transpose())*(1.0/(n));
-	JacobiSVD<MatrixXd> svd_cov(cov, ComputeThinU | ComputeThinV);
-	MatrixXd to_return(p,k);
-	to_return =(c_orth.transpose())*svd_cov.matrixU() ;
-	return to_return;
-}
-
-float get_accuracy(MatrixXd &u)
-{
-	
-	MatrixXd temp(k,k);
-	temp = (u.transpose()) * v ;
-	float accuracy = 0.0;
-	for(int j=0;j<k;j++)
-	{
-		float sum=0.0;
-		for(int i=0;i<k;i++)
-			sum += temp(i,j)*temp(i,j);
-		accuracy += sqrt(sum);
-	}
-	return (accuracy/k);
-}
-
-MatrixXd get_reference_evec()
-{
-
-	MatrixXd y_m(p,n);
-	for(int i=0;i<p;i++)
-	{
-		for(int j=0;j<n;j++)
-			y_m(i,j) = g.get_geno(i,j);
-	}
-	MatrixXd cov(p,p);
-	printf("Calculating covariance\n");
-	cov = y_m*(y_m.transpose())*(1.0/n);
-	printf("Calculating SVD\n");
-	JacobiSVD<MatrixXd> svd_cov(cov, ComputeThinU | ComputeThinV);
-	MatrixXd to_return(p,k);
-	MatrixXd U(p,k);
-	U = svd_cov.matrixU();
-	for(int i=0;i<p;i++)
-	{
-		for(int j=0;j<k;j++)
-			to_return(i,j) = U(i,j);
-	}
-
-	return to_return;
-}
-
-*/
-
 
 void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 	double *sum_op = new double[Ncol_op];
@@ -129,13 +51,13 @@ void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 			if(seg_iter==g.Nsegments_hori-1){
 				if(g.Nsnp%g.segment_size_hori!=0){
 					double *y_final = new double[g.Nsnp%g.segment_size_hori];
-					mailman::fastmultiply2(g.Nsnp%g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y_final);
+					mailman::fastmultiply3(g.Nsnp%g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y_final,g.Nbits_hori);
 					for(int p_iter=seg_iter*g.segment_size_hori;p_iter<seg_iter*g.segment_size_hori + g.Nsnp%g.segment_size_hori  && p_iter<g.Nsnp;p_iter++)
 						res(p_iter,k_iter) = y_final[p_iter-(seg_iter*g.segment_size_hori)];
 					break;
 				}
 			}
-			mailman::fastmultiply2(g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y);
+			mailman::fastmultiply3(g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y,g.Nbits_hori);
 			int p_base = seg_iter*g.segment_size_hori; 
 			for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ) 
 				res(p_iter,k_iter) = y[p_iter-p_base];
@@ -175,14 +97,14 @@ void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
 			if(seg_iter==g.Nsegments_ver-1){
 				if(g.Nindv%g.segment_size_ver!=0){
 					double *y_final = new double[g.Nindv%g.segment_size_ver];
-					mailman::fastmultiply2(g.Nindv%g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y_final);
+					mailman::fastmultiply3(g.Nindv%g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y_final,g.Nbits_ver);
 					for(int n_iter=seg_iter*g.segment_size_ver ; n_iter<seg_iter*g.segment_size_ver + g.Nindv%g.segment_size_ver  && n_iter<g.Nindv ; n_iter++)
 						res(k_iter,n_iter) = y_final[n_iter-(seg_iter*g.segment_size_ver)];
 					break;
 				}
 
 			}
-			mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y);
+			mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y,g.Nbits_ver);
 			int n_base = seg_iter*g.segment_size_ver; 
 			for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++ ) 
 				res(k_iter,n_iter) = y[n_iter-n_base];
@@ -319,7 +241,7 @@ int main(int argc, char const *argv[]){
 
 	parse_args(argc,argv);
 
-	g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH);	
+	g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH);	
 	MAX_ITER =  command_line_opts.max_iterations ; 
 	k_orig = command_line_opts.num_of_evec ;
 	debug = command_line_opts.debugmode ;
@@ -343,6 +265,13 @@ int main(int argc, char const *argv[]){
 	
 	ofstream c_file;
 	if(debug){
+		// for(int i=0;i<g.Nsegments_ver;i++){
+		// 	for(int j=0;j<g.Nsnp;j++){
+
+		// 		cout<<extract_from_arr(j,g.Nbits_ver,g.q_eff[i])<<" ";
+		// 	}
+		// 	cout<<endl;
+		// }
 		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_orig.txt")).c_str());
 		c_file<<c<<endl;
 		c_file.close();

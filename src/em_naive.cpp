@@ -188,8 +188,8 @@ int main(int argc, char const *argv[])
 	clock_t it_begin = clock();
 	for(int i=0;i<MAX_ITER;i++)
 	{
-		// if(debug)
-		// 	printf("Iteration %d -- E Step\n",i);
+		if(debug)
+			printf("Iteration %d -- E Step\n",i);
 		
 		MatrixXd c_temp(k,p);
 		c_temp = ((c.transpose()*c).inverse())*(c.transpose());
@@ -204,8 +204,8 @@ int main(int argc, char const *argv[])
 			}
 		}
 
-		// if(debug)
-		// 	printf("Iteration %d -- M Step\n",i);
+		if(debug)
+			printf("Iteration %d -- M Step\n",i);
 		
 		MatrixXd x_temp(n,k);
 		x_temp = (x.transpose()) * ((x*(x.transpose())).inverse());
@@ -221,16 +221,16 @@ int main(int argc, char const *argv[])
 		}
 
 
-		if(check_accuracy){
-			// MatrixXd eigenvectors(p,k);
-			// eigenvectors = get_evec(c);
-			pair<double,double> p = get_error_norms();
-			cout<<"Iteration "<<i+1<<" "<<p.first<<endl;	
-			if( abs((p.second- prev_error))< convergence_limit)
-				break;
-			else
-				prev_error = p.second;
-		}
+		// if(check_accuracy){
+		// 	// MatrixXd eigenvectors(p,k);
+		// 	// eigenvectors = get_evec(c);
+		// 	pair<double,double> p = get_error_norms();
+		// 	cout<<"Iteration "<<i+1<<" "<<p.first<<endl;	
+		// 	if( abs((p.second- prev_error))< convergence_limit)
+		// 		break;
+		// 	else
+		// 		prev_error = p.second;
+		// }
 		
 	}
 	clock_t it_end = clock();
