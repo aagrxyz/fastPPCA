@@ -22,6 +22,8 @@ struct options{
 	int accelerated_em;
 	int l;
 	double convergence_limit;
+	bool memory_efficient;
+	bool fast_mode;
 };
 
 template<typename T, typename U>
@@ -195,6 +197,8 @@ void parse_args(int argc, char const *argv[]){
 	command_line_opts.l=2;
 	command_line_opts.accelerated_em=0;
 	command_line_opts.convergence_limit= 0.01;
+	command_line_opts.memory_efficient=false;
+	command_line_opts.fast_mode=true;
 
 	if(argc<3){
 		cout<<"Correct Usage is "<<argv[0]<<" -p <parameter file>"<<endl;
@@ -216,7 +220,8 @@ void parse_args(int argc, char const *argv[]){
 		command_line_opts.convergence_limit =cfg.getValueOfKey<double>("convergence_limit",0.01);
 		command_line_opts.var_normalize = cfg.getValueOfKey<bool>("var_normalize",false);
 		command_line_opts.accelerated_em = cfg.getValueOfKey<int>("accelerated_em",0);
-
+		command_line_opts.memory_efficient = cfg.getValueOfKey<bool>("memory_efficient",false);	
+		command_line_opts.fast_mode = cfg.getValueOfKey<bool>("fast_mode",true);					
 	}
 	else{
 		for (int i = 1; i < argc; i++) { 
@@ -256,6 +261,10 @@ void parse_args(int argc, char const *argv[]){
 				command_line_opts.var_normalize=true;
 			else if(strcmp(argv[i],"-a")==0)
 				command_line_opts.getaccuracy=true;
+			else if(strcmp(argv[i],"-mem")==0)
+				command_line_opts.memory_efficient=true;
+			else if(strcmp(argv[i],"-nfm")==0)
+				command_line_opts.fast_mode=false;
 			else{
 				cout<<"Not Enough or Invalid arguments"<<endl;
 				cout<<"Correct Usage is "<<argv[0]<<" -g <genotype file> -k <num_of_evec> -m <max_iterations> -v (for debugmode) -a (for getting accuracy)"<<endl;
@@ -268,6 +277,10 @@ void parse_args(int argc, char const *argv[]){
 			command_line_opts.getaccuracy=true;
 		else if(strcmp(argv[i],"-vn")==0)
 				command_line_opts.var_normalize=true;
+		else if(strcmp(argv[i],"-mem")==0)
+				command_line_opts.memory_efficient=true;
+		else if(strcmp(argv[i],"-nfm")==0)
+				command_line_opts.fast_mode=false;
 		}
 
 	}

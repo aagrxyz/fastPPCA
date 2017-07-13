@@ -51,6 +51,8 @@ The values in the brackets are the command line flags for running the code witho
 * output_path (-o) : The output prefix along with the path where the results will be stored
 * accelerated_em (-aem) : The flag stating whether to use accelerated EM or not (default: 0).
 * var_normalize (-vn) : The flag stating whether to perform varinance normalization or not (default: false).
+* memory_efficient (-mem) : The flag states whether to use a memory effecient version for the EM algorithm or not. The memory efficient version is a little slow than the not efficient version (default: false)
+* fast_mode (-nfm) : The flag whether to use a fast mode for the EM algorithm(default: true). Note: Setting the -nfm (NOT fast_mode) at command line will use a slow version of EM.
 
 ```
 
@@ -65,7 +67,7 @@ You can run the code using the command:
 The equivalent command to issue for running the same code from the examples directory is:
 
 ```
-../build/fastppca -g example.geno -k 5 -l 2 -m 20 -a -cl 0.001 -o example_ -aem 1 -vn
+../build/fastppca -g example.geno -k 5 -l 2 -m 20 -a -cl 0.001 -o example_ -aem 1 -vn -nfm
 ```
 
 ### Genotype File

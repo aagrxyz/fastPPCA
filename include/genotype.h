@@ -22,7 +22,7 @@ class genotype {
 		void read_genotype_mailman (std::string filename);
 		void read_genotype_eff (std::string filename);		
 		void read_genotype_naive (std::string filename);
-		float get_geno(int snpindex,int indvindex);
+		float get_geno(int snpindex,int indvindex,bool var_normalize);
 		std::vector<float> get_geno_row(int snpindex);
 		std::vector<float> get_geno_col(int indvindex);
 		float get_col_mean(int snpindex);

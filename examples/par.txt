@@ -8,3 +8,5 @@ convergence_limit = 0.001
 output_path = example_
 accelerated_em = 1
 var_normalize = true
+memory_efficient = false
+fast_mode = false

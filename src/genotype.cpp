@@ -168,13 +168,18 @@ void genotype::read_genotype_eff (std::string filename){
 	i--;
 }
 
-float genotype::get_geno(int snpindex,int indvindex){
+float genotype::get_geno(int snpindex,int indvindex,bool var_normalize=false){
 	float m = msb[snpindex][indvindex];
 	float l = lsb[snpindex][indvindex];
 	if ((m*2+l)==3.0)
 		return 0.0;
-	else
-		return ( (m*2.0+l) - get_col_mean(snpindex));
+	else{
+		float geno = (m*2.0+l) - get_col_mean(snpindex);
+		if(var_normalize)
+			return geno/get_col_std(snpindex);
+		else
+			return geno;
+	}
 }
 
 vector<float> genotype::get_geno_row(int snpindex){

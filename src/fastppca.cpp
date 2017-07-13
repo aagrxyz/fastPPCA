@@ -11,6 +11,7 @@
 #include "genotype.h"
 #include "mailman.h"
 #include "helper.h"
+#include <Eigen/QR>
 #include "storage.h"
 
 using namespace Eigen;
@@ -34,9 +35,12 @@ bool check_accuracy = false;
 bool var_normalize=false;
 int accelerated_em=0;
 double convergence_limit;
+bool memory_efficient = false;
+
+bool fast_mode = true;
 
 
-void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res){
+void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 	double *sum_op = new double[Ncol_op];
 	double *yint_m = new double[(int)pow(3,g.segment_size_hori)];
 
@@ -51,13 +55,19 @@ void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 			if(seg_iter==g.Nsegments_hori-1){
 				if(g.Nsnp%g.segment_size_hori!=0){
 					double *y_final = new double[g.Nsnp%g.segment_size_hori];
-					mailman::fastmultiply3(g.Nsnp%g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y_final,g.Nbits_hori);
+					if(memory_efficient)
+						mailman::fastmultiply3(g.Nsnp%g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y_final,g.Nbits_hori);
+					else
+						mailman::fastmultiply2(g.Nsnp%g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y_final);
 					for(int p_iter=seg_iter*g.segment_size_hori;p_iter<seg_iter*g.segment_size_hori + g.Nsnp%g.segment_size_hori  && p_iter<g.Nsnp;p_iter++)
 						res(p_iter,k_iter) = y_final[p_iter-(seg_iter*g.segment_size_hori)];
 					break;
 				}
 			}
-			mailman::fastmultiply3(g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y,g.Nbits_hori);
+			if(memory_efficient)
+				mailman::fastmultiply3(g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y,g.Nbits_hori);
+			else
+				mailman::fastmultiply2(g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y);
 			int p_base = seg_iter*g.segment_size_hori; 
 			for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ) 
 				res(p_iter,k_iter) = y[p_iter-p_base];
@@ -73,7 +83,7 @@ void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 	}	
 }
 
-void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
+void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
 	double *yint_e = new double[(int)pow(3,g.segment_size_ver)];
 
 	MatrixXd op;
@@ -97,18 +107,23 @@ void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
 			if(seg_iter==g.Nsegments_ver-1){
 				if(g.Nindv%g.segment_size_ver!=0){
 					double *y_final = new double[g.Nindv%g.segment_size_ver];
-					mailman::fastmultiply3(g.Nindv%g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y_final,g.Nbits_ver);
+					if(memory_efficient)
+						mailman::fastmultiply3(g.Nindv%g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y_final,g.Nbits_ver);
+					else
+						mailman::fastmultiply2(g.Nindv%g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y_final);
 					for(int n_iter=seg_iter*g.segment_size_ver ; n_iter<seg_iter*g.segment_size_ver + g.Nindv%g.segment_size_ver  && n_iter<g.Nindv ; n_iter++)
 						res(k_iter,n_iter) = y_final[n_iter-(seg_iter*g.segment_size_ver)];
 					break;
 				}
 
 			}
-			mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y,g.Nbits_ver);
+			if(memory_efficient)
+				mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y,g.Nbits_ver);
+			else
+				mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y);
 			int n_base = seg_iter*g.segment_size_ver; 
 			for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++ ) 
 				res(k_iter,n_iter) = y[n_iter-n_base];
-
 		}
 	}
 	double *sums_elements = new double[Ncol_op];
@@ -127,6 +142,44 @@ void multiply_y_post(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
 	}
 }
 
+void multiply_y_pre_naive(MatrixXd &op, int Ncol_op ,MatrixXd &res){
+
+	for(int p_iter=0;p_iter<p;p_iter++){
+		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
+			float temp=0;
+			for(int n_iter=0;n_iter<n;n_iter++)
+				temp+= g.get_geno(p_iter,n_iter,var_normalize)*op(n_iter,k_iter);
+			res(p_iter,k_iter)=temp;
+		}
+	}
+}
+
+void multiply_y_post_naive(MatrixXd &op, int Nrows_op ,MatrixXd &res){
+
+	for(int n_iter=0;n_iter<n;n_iter++){
+		for(int k_iter=0;k_iter<Nrows_op;k_iter++){
+			float temp=0;
+			for(int p_iter=0;p_iter<p;p_iter++)
+				temp+= op(k_iter,p_iter)*(g.get_geno(p_iter,n_iter,var_normalize));
+			res(k_iter,n_iter)=temp;
+		}
+	}
+}
+
+void multiply_y_post(MatrixXd &op, int Nrows_op ,MatrixXd &res){
+    if(fast_mode)
+        multiply_y_post_fast(op,Nrows_op,res);
+    else
+        multiply_y_post_naive(op,Nrows_op,res);
+}
+
+void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res){
+    if(fast_mode)
+        multiply_y_pre_fast(op,Ncol_op,res);
+    else
+        multiply_y_pre_naive(op,Ncol_op,res);
+}
+
 pair<double,double> get_error_norm(MatrixXd &c){
 	HouseholderQR<MatrixXd> qr(c);
 	MatrixXd Q;
@@ -137,7 +190,10 @@ pair<double,double> get_error_norm(MatrixXd &c){
 	multiply_y_post(q_t,k,b);
 	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
 	MatrixXd u_l,d_l,v_l; 
-	u_l = b_svd.matrixU();
+	if(fast_mode)
+        u_l = b_svd.matrixU();
+    else
+        u_l = Q * b_svd.matrixU();
 	v_l = b_svd.matrixV();
 	d_l = MatrixXd::Zero(k,k);
 	for(int kk=0;kk<k; kk++)
@@ -151,23 +207,53 @@ pair<double,double> get_error_norm(MatrixXd &c){
 		d_k(kk,kk)  =(b_svd.singularValues())(kk);
 
 	MatrixXd b_l,b_k;
-	b_l = u_l * d_l * (v_l.transpose());
-	b_k = u_k * d_k * (v_k.transpose());
+    b_l = u_l * d_l * (v_l.transpose());
+    b_k = u_k * d_k * (v_k.transpose());
 
-	double temp_k=0.0;
-	double temp_l=0.0;
-	for(int k_iter=0;k_iter<k;k_iter++){
-		for(int n_iter=0;n_iter<n;n_iter++){
-			temp_k += b_k(k_iter,n_iter)*b(k_iter,n_iter);
-			temp_l += b_l(k_iter,n_iter)*b(k_iter,n_iter);
-		}
-	}
+    if(fast_mode){
+        double temp_k=0.0;
+        double temp_l=0.0;
+        for(int k_iter=0;k_iter<k;k_iter++){
+            for(int n_iter=0;n_iter<n;n_iter++){
+                temp_k += b_k(k_iter,n_iter)*b(k_iter,n_iter);
+                temp_l += b_l(k_iter,n_iter)*b(k_iter,n_iter);
+            }
+        }
+        double b_knorm = b_k.norm();
+        double b_lnorm = b_l.norm();
+        double norm_k = (b_knorm*b_knorm) - (2*temp_k);
+        double norm_l = (b_lnorm*b_lnorm) - (2*temp_l);	
+        return make_pair(norm_k,norm_l);
+    }
+    else{
+        MatrixXd e_l(p,n);
+        MatrixXd e_k(p,n);
+        for(int p_iter=0;p_iter<p;p_iter++)
+        {
+            for(int n_iter=0;n_iter<n;n_iter++){
+                e_l(p_iter,n_iter) = g.get_geno(p_iter,n_iter,var_normalize) - b_l(p_iter,n_iter);
+                e_k(p_iter,n_iter) = g.get_geno(p_iter,n_iter,var_normalize) - b_k(p_iter,n_iter);
+            }
+        }
 
-	double b_knorm = b_k.norm();
-	double b_lnorm = b_l.norm();
-	double norm_k = (b_knorm*b_knorm) - (2*temp_k);
-	double norm_l = (b_lnorm*b_lnorm) - (2*temp_l);	
-	return make_pair(norm_k,norm_l);
+        double ek_norm = e_k.norm();
+        double el_norm = e_l.norm();
+        return make_pair(ek_norm,el_norm);
+    }
+}
+
+MatrixXd run_EM(MatrixXd &c_orig){
+	MatrixXd c_temp(k,p);
+	MatrixXd c_new(p,k);
+	c_temp = ( (c_orig.transpose()*c_orig).inverse() ) * (c_orig.transpose());
+
+	MatrixXd x_fn(k,n);
+	multiply_y_post(c_temp,k,x_fn);
+
+	MatrixXd x_temp(n,k);
+	x_temp = (x_fn.transpose()) * ((x_fn*(x_fn.transpose())).inverse());
+	multiply_y_pre(x_temp,k,c_new);
+	return c_new;
 }
 
 void print_vals(){
@@ -215,22 +301,6 @@ void print_vals(){
 		x_file<<x_k<<endl;
 		x_file.close();
 	}
-
-}
-
-MatrixXd run_EM(MatrixXd &c_orig){
-	MatrixXd c_temp(k,p);
-	MatrixXd c_new(p,k);
-	c_temp = ( (c_orig.transpose()*c_orig).inverse() ) * (c_orig.transpose());
-
-	MatrixXd x_fn(k,n);
-	multiply_y_post(c_temp,k,x_fn);
-
-	MatrixXd x_temp(n,k);
-	x_temp = (x_fn.transpose()) * ((x_fn*(x_fn.transpose())).inverse());
-
-	multiply_y_pre(x_temp,k,c_new);
-	return c_new;
 }
 
 int main(int argc, char const *argv[]){
@@ -241,8 +311,19 @@ int main(int argc, char const *argv[]){
 
 	parse_args(argc,argv);
 
-	g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH);	
-	MAX_ITER =  command_line_opts.max_iterations ; 
+	memory_efficient = command_line_opts.memory_efficient;
+    fast_mode = command_line_opts.fast_mode;
+
+    if(fast_mode){
+        if(memory_efficient)
+            g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH);	
+        else
+            g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH);
+    }
+    else
+        g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH);	
+
+    MAX_ITER =  command_line_opts.max_iterations ; 
 	k_orig = command_line_opts.num_of_evec ;
 	debug = command_line_opts.debugmode ;
 	check_accuracy = command_line_opts.getaccuracy;
@@ -265,13 +346,6 @@ int main(int argc, char const *argv[]){
 	
 	ofstream c_file;
 	if(debug){
-		// for(int i=0;i<g.Nsegments_ver;i++){
-		// 	for(int j=0;j<g.Nsnp;j++){
-
-		// 		cout<<extract_from_arr(j,g.Nbits_ver,g.q_eff[i])<<" ";
-		// 	}
-		// 	cout<<endl;
-		// }
 		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_orig.txt")).c_str());
 		c_file<<c<<endl;
 		c_file.close();
@@ -326,7 +400,7 @@ int main(int argc, char const *argv[]){
 	}
 	clock_t it_end = clock();
 
-	print_vals();
+    print_vals();
 		
 	clock_t total_end = clock();
 	double io_time = double(io_end - io_begin) / CLOCKS_PER_SEC;
