@@ -13,6 +13,8 @@
 #include "helper.h"
 #include <Eigen/QR>
 #include "storage.h"
+#include <fenv.h>
+
 
 using namespace Eigen;
 using namespace std;
@@ -27,6 +29,7 @@ int k_orig;
 MatrixXd c; //(p,k)
 MatrixXd x; //(k,n)
 MatrixXd v; //(p,k)
+MatrixXd means; //(p,1)
 
 options command_line_opts;
 
@@ -36,8 +39,11 @@ bool var_normalize=false;
 int accelerated_em=0;
 double convergence_limit;
 bool memory_efficient = false;
+bool missing=false;
 
 bool fast_mode = true;
+
+
 
 
 void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res){
@@ -73,7 +79,8 @@ void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 				res(p_iter,k_iter) = y[p_iter-p_base];
 		}			
 	}
-
+	if(missing)
+		return;
 	for(int p_iter=0;p_iter<p;p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 			res(p_iter,k_iter) = res(p_iter,k_iter) - (g.get_col_mean(p_iter)*sum_op[k_iter]);
@@ -126,6 +133,8 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
 				res(k_iter,n_iter) = y[n_iter-n_base];
 		}
 	}
+	if(missing)
+		return;
 	double *sums_elements = new double[Ncol_op];
 	memset (sums_elements, 0, Nrows_op * sizeof(int));
 
@@ -135,7 +144,7 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
 			sum_to_calc += g.get_col_mean(p_iter)*op(p_iter,k_iter);
 		sums_elements[k_iter] = sum_to_calc;
 	}
-
+	
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 		for(int n_iter=0;n_iter<n;n_iter++)
 			res(k_iter,n_iter) = res(k_iter,n_iter) - sums_elements[k_iter];
@@ -256,6 +265,65 @@ MatrixXd run_EM(MatrixXd &c_orig){
 	return c_new;
 }
 
+std::pair<MatrixXd,MatrixXd> run_EM_missing(MatrixXd &c_orig,MatrixXd &means_orig){
+	MatrixXd c_new(p,k);
+	MatrixXd means_new(p,1);
+
+	MatrixXd mu(k,n);
+	
+	// E step
+	MatrixXd c_temp(k,k);
+	c_temp = (c_orig.transpose()*c_orig)  ;
+
+	MatrixXd T(k,n);
+	MatrixXd c_fn;
+	c_fn = c_orig.transpose();
+	multiply_y_post(c_fn,k,T);
+
+	MatrixXd M_temp;
+	M_temp = c_orig.transpose() * means_orig;
+	for(int j=0;j<n;j++){
+		MatrixXd D(k,k),M_to_remove(k,1);
+		D = MatrixXd::Zero(k,k);
+		M_to_remove = MatrixXd::Zero(k,1);
+		for(int i=0;i<g.not_O_j[j].size();i++){
+			cout<<"entered E step not "<<endl;
+			D = D + (c_orig.row(i).transpose() * c_orig.row(i));
+			M_to_remove = M_to_remove + (c_orig.row(i).transpose()*means_orig.row(i));
+		}
+		mu.col(j) = (c_temp-D).inverse() * ( T.col(j) - M_temp + M_to_remove);
+	}
+
+	// M step
+
+	MatrixXd mu_temp(k,k);
+	mu_temp = mu * mu.transpose();
+	MatrixXd T1(p,k);
+	MatrixXd mu_fn;
+	mu_fn = mu.transpose();
+	multiply_y_pre(mu_fn,k,T1);
+	MatrixXd mu_sum(k,1);
+	mu_sum = MatrixXd::Zero(k,1);
+	for(int j=0;j<n;j++)
+		mu_sum += mu.col(j);
+	
+	for(int i=0;i<p;i++){
+		MatrixXd D(k,k),mu_to_remove(k,1);
+		D = MatrixXd::Zero(k,k);
+		mu_to_remove = MatrixXd::Zero(k,1);
+		for(int j=0;j<g.not_O_i[i].size();j++){
+			D = D + (mu.col(j) * mu.col(j).transpose());
+			mu_to_remove = mu_to_remove + (mu.col(j));
+		}
+		c_new.row(i) = (((mu_temp-D).inverse()) * (T1.row(i).transpose() -  ( means_orig(i,0) * (mu_sum-mu_to_remove)))).transpose();
+		means_new(i,0) = g.get_col_sum(i);
+		means_new(i,0) = means_new(i,0) -  (c_orig.row(i)*(mu_sum-mu_to_remove))(0,0);
+		means_new(i,0) = means_new(i,0) * 1.0 / (n-g.not_O_i[i].size());
+	}
+
+	return make_pair(c_new,means_new);
+}
+
 void print_vals(){
 
 	HouseholderQR<MatrixXd> qr(c);
@@ -304,6 +372,9 @@ void print_vals(){
 }
 
 int main(int argc, char const *argv[]){
+
+	feenableexcept(FE_INVALID | FE_OVERFLOW);
+	
 	
 	clock_t io_begin = clock();
 	pair<double,double> prev_error = make_pair(0.0,0.0);
@@ -313,16 +384,22 @@ int main(int argc, char const *argv[]){
 
 	memory_efficient = command_line_opts.memory_efficient;
     fast_mode = command_line_opts.fast_mode;
+	missing = command_line_opts.missing;
 
-    if(fast_mode){
-        if(memory_efficient)
-            g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH);	
-        else
-            g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH);
-    }
-    else
-        g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH);	
+	if(missing)
+		g.read_genotype_mailman_missing(command_line_opts.GENOTYPE_FILE_PATH);
+	else{
+		  if(fast_mode){
+			if(memory_efficient)
+				g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH);	
+			else
+				g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH);
+		}
+		else
+			g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH);	
+	}
 
+  
     MAX_ITER =  command_line_opts.max_iterations ; 
 	k_orig = command_line_opts.num_of_evec ;
 	debug = command_line_opts.debugmode ;
@@ -337,12 +414,20 @@ int main(int argc, char const *argv[]){
 	c.resize(p,k);
 	x.resize(k,n);
 	v.resize(p,k);
+	means.resize(p,1);
 
 	clock_t io_end = clock();
 
 	//TODO: Initialization of c
 
 	c = MatrixXd::Random(p,k);
+
+	//TODO: AEM in Missing
+	if(missing)
+		accelerated_em=0;
+
+	for(int i=0;i<p;i++)
+		means(i,0) = g.get_col_mean(i);
 	
 	ofstream c_file;
 	if(debug){
@@ -353,6 +438,7 @@ int main(int argc, char const *argv[]){
 	}
 
 	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
+
 	
 	clock_t it_begin = clock();
 	for(int i=0;i<MAX_ITER;i++){
@@ -388,13 +474,20 @@ int main(int argc, char const *argv[]){
 				c = run_EM(cint);				
 			}
 		}
-		else
-			c = run_EM(c);
+		else{
+			if(missing){
+				std::pair<MatrixXd,MatrixXd> p = run_EM_missing(c,means);
+				c = p.first;
+				means = p.second;
+			}
+			else
+				c = run_EM(c);
+		}
 		
 		pair<double,double> e = get_error_norm(c);
 		prevnll = e.second;
 		if(check_accuracy)
-			cout<<"Iteration "<<i+1<<"  "<<prev_error.first - e.first<<"  "<<prev_error.second - e.second<<endl;
+			cout<<"Iteration "<<i+1<<"  "<<e.first<<"  "<<e.second<<endl;
 		prev_error = e;
 
 	}

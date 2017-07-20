@@ -24,6 +24,7 @@ struct options{
 	double convergence_limit;
 	bool memory_efficient;
 	bool fast_mode;
+	bool missing;
 };
 
 template<typename T, typename U>
@@ -199,6 +200,8 @@ void parse_args(int argc, char const *argv[]){
 	command_line_opts.convergence_limit= 0.01;
 	command_line_opts.memory_efficient=false;
 	command_line_opts.fast_mode=true;
+	command_line_opts.missing=false;
+	
 
 	if(argc<3){
 		cout<<"Correct Usage is "<<argv[0]<<" -p <parameter file>"<<endl;
@@ -221,7 +224,9 @@ void parse_args(int argc, char const *argv[]){
 		command_line_opts.var_normalize = cfg.getValueOfKey<bool>("var_normalize",false);
 		command_line_opts.accelerated_em = cfg.getValueOfKey<int>("accelerated_em",0);
 		command_line_opts.memory_efficient = cfg.getValueOfKey<bool>("memory_efficient",false);	
-		command_line_opts.fast_mode = cfg.getValueOfKey<bool>("fast_mode",true);					
+		command_line_opts.fast_mode = cfg.getValueOfKey<bool>("fast_mode",true);
+		command_line_opts.missing = cfg.getValueOfKey<bool>("missing",false);	
+							
 	}
 	else{
 		for (int i = 1; i < argc; i++) { 
@@ -263,6 +268,8 @@ void parse_args(int argc, char const *argv[]){
 				command_line_opts.getaccuracy=true;
 			else if(strcmp(argv[i],"-mem")==0)
 				command_line_opts.memory_efficient=true;
+			else if(strcmp(argv[i],"-miss")==0)
+				command_line_opts.missing=true;
 			else if(strcmp(argv[i],"-nfm")==0)
 				command_line_opts.fast_mode=false;
 			else{
@@ -281,6 +288,8 @@ void parse_args(int argc, char const *argv[]){
 				command_line_opts.memory_efficient=true;
 		else if(strcmp(argv[i],"-nfm")==0)
 				command_line_opts.fast_mode=false;
+		else if(strcmp(argv[i],"-miss")==0)
+				command_line_opts.missing=true;
 		}
 
 	}

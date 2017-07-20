@@ -1,0 +1,14 @@
+Running on Dataset of 100000 SNPs and 4998 Individuals
+Iteration 1  8.80376e+06  9.39096e+06
+Iteration 2  75565.7  142809
+Iteration 3  -32828.5  17312.2
+Iteration 4  33592.3  38091.7
+Iteration 5  -7174.36  9331.47
+Iteration 6  7154.45  10229.7
+Iteration 7  -1223.38  585.178
+Iteration 8  1243.33  1654.14
+Iteration 9  -155.753  1296.39
+Iteration 10  133.538  513.907
+IO Time:  23.0554
+AVG Iteration Time:  10.5556
+Total runtime:   131.271

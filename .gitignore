@@ -1,4 +1,4 @@
-build/
+
 *.out
 scripts/
 src_bit_vector

@@ -1,0 +1,1 @@
+Running on Dataset of 50000 SNPs and 10002 Individuals

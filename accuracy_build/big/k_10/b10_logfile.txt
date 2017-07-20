@@ -1,0 +1,37 @@
+Running on Dataset of 50000 SNPs and 10002 Individuals
+Iteration 1  13427.3  13416.4
+Iteration 2  13426.4  13413.2
+Iteration 3  13426  13412.4
+Iteration 4  13426  13412.1
+Iteration 5  13425.8  13411.8
+Iteration 6  13425.7  13411.6
+Iteration 7  13425.7  13411.5
+Iteration 8  13425.7  13411.4
+Iteration 9  13425.7  13411.4
+Iteration 10  13425.6  13411.3
+IO Time:  20.3721
+AVG Iteration Time:  2014.43
+Total runtime:   20583
+	Command being timed: "./fastppca -g ../../simulator/big-data/geno/b10.geno -k 10 -l 10 -m 10 -a -cl 0.001 -aem 1 -nfm -o big/k_10/b10_"
+	User time (seconds): 20541.88
+	System time (seconds): 41.08
+	Percent of CPU this job got: 99%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 5:43:03
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 15864200
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 2
+	Minor (reclaiming a frame) page faults: 646602
+	Voluntary context switches: 109
+	Involuntary context switches: 36417
+	Swaps: 0
+	File system inputs: 977744
+	File system outputs: 12800
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
