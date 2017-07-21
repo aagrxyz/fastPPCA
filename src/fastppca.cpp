@@ -43,10 +43,7 @@ bool missing=false;
 
 bool fast_mode = true;
 
-
-
-
-void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res){
+void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_means){
 	double *sum_op = new double[Ncol_op];
 	double *yint_m = new double[(int)pow(3,g.segment_size_hori)];
 
@@ -79,7 +76,7 @@ void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 				res(p_iter,k_iter) = y[p_iter-p_base];
 		}			
 	}
-	if(missing)
+	if(!subtract_means)
 		return;
 	for(int p_iter=0;p_iter<p;p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
@@ -90,7 +87,7 @@ void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 	}	
 }
 
-void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
+void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool subtract_means){
 	double *yint_e = new double[(int)pow(3,g.segment_size_ver)];
 
 	MatrixXd op;
@@ -133,7 +130,7 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res){
 				res(k_iter,n_iter) = y[n_iter-n_base];
 		}
 	}
-	if(missing)
+	if(!subtract_means)
 		return;
 	double *sums_elements = new double[Ncol_op];
 	memset (sums_elements, 0, Nrows_op * sizeof(int));
@@ -155,7 +152,7 @@ void multiply_y_pre_naive(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 
 	for(int p_iter=0;p_iter<p;p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-			float temp=0;
+			double temp=0;
 			for(int n_iter=0;n_iter<n;n_iter++)
 				temp+= g.get_geno(p_iter,n_iter,var_normalize)*op(n_iter,k_iter);
 			res(p_iter,k_iter)=temp;
@@ -167,7 +164,7 @@ void multiply_y_post_naive(MatrixXd &op, int Nrows_op ,MatrixXd &res){
 
 	for(int n_iter=0;n_iter<n;n_iter++){
 		for(int k_iter=0;k_iter<Nrows_op;k_iter++){
-			float temp=0;
+			double temp=0;
 			for(int p_iter=0;p_iter<p;p_iter++)
 				temp+= op(k_iter,p_iter)*(g.get_geno(p_iter,n_iter,var_normalize));
 			res(k_iter,n_iter)=temp;
@@ -175,16 +172,16 @@ void multiply_y_post_naive(MatrixXd &op, int Nrows_op ,MatrixXd &res){
 	}
 }
 
-void multiply_y_post(MatrixXd &op, int Nrows_op ,MatrixXd &res){
+void multiply_y_post(MatrixXd &op, int Nrows_op ,MatrixXd &res,bool subtract_means){
     if(fast_mode)
-        multiply_y_post_fast(op,Nrows_op,res);
+        multiply_y_post_fast(op,Nrows_op,res,subtract_means);
     else
         multiply_y_post_naive(op,Nrows_op,res);
 }
 
-void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res){
+void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_means){
     if(fast_mode)
-        multiply_y_pre_fast(op,Ncol_op,res);
+        multiply_y_pre_fast(op,Ncol_op,res,subtract_means);
     else
         multiply_y_pre_naive(op,Ncol_op,res);
 }
@@ -196,7 +193,7 @@ pair<double,double> get_error_norm(MatrixXd &c){
 	MatrixXd q_t(k,p);
 	q_t = Q.transpose();
 	MatrixXd b(k,n);
-	multiply_y_post(q_t,k,b);
+	multiply_y_post(q_t,k,b,true);
 	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
 	MatrixXd u_l,d_l,v_l; 
 	if(fast_mode)
@@ -251,23 +248,22 @@ pair<double,double> get_error_norm(MatrixXd &c){
     }
 }
 
-MatrixXd run_EM(MatrixXd &c_orig){
+MatrixXd run_EM_not_missing(MatrixXd &c_orig){
 	MatrixXd c_temp(k,p);
 	MatrixXd c_new(p,k);
 	c_temp = ( (c_orig.transpose()*c_orig).inverse() ) * (c_orig.transpose());
 
 	MatrixXd x_fn(k,n);
-	multiply_y_post(c_temp,k,x_fn);
+	multiply_y_post(c_temp,k,x_fn,true);
 
 	MatrixXd x_temp(n,k);
 	x_temp = (x_fn.transpose()) * ((x_fn*(x_fn.transpose())).inverse());
-	multiply_y_pre(x_temp,k,c_new);
+	multiply_y_pre(x_temp,k,c_new,true);
 	return c_new;
 }
 
-std::pair<MatrixXd,MatrixXd> run_EM_missing(MatrixXd &c_orig,MatrixXd &means_orig){
+MatrixXd run_EM_missing(MatrixXd &c_orig){
 	MatrixXd c_new(p,k);
-	MatrixXd means_new(p,1);
 
 	MatrixXd mu(k,n);
 	
@@ -278,10 +274,17 @@ std::pair<MatrixXd,MatrixXd> run_EM_missing(MatrixXd &c_orig,MatrixXd &means_ori
 	MatrixXd T(k,n);
 	MatrixXd c_fn;
 	c_fn = c_orig.transpose();
-	multiply_y_post(c_fn,k,T);
+	multiply_y_post(c_fn,k,T,false);
 
-	MatrixXd M_temp;
-	M_temp = c_orig.transpose() * means_orig;
+	MatrixXd M_temp(k,1);
+	for(int k_iter=0;k_iter<k;k_iter++){
+		double sum=0.0;
+		for(int p_iter=0;p_iter<p;p_iter++){
+			sum+= c_orig(p_iter,k_iter)*g.get_col_mean(p_iter);
+		}
+		M_temp(k_iter,0) = sum;
+	}
+
 	for(int j=0;j<n;j++){
 		MatrixXd D(k,k),M_to_remove(k,1);
 		D = MatrixXd::Zero(k,k);
@@ -289,7 +292,7 @@ std::pair<MatrixXd,MatrixXd> run_EM_missing(MatrixXd &c_orig,MatrixXd &means_ori
 		for(int i=0;i<g.not_O_j[j].size();i++){
 			cout<<"entered E step not "<<endl;
 			D = D + (c_orig.row(i).transpose() * c_orig.row(i));
-			M_to_remove = M_to_remove + (c_orig.row(i).transpose()*means_orig.row(i));
+			M_to_remove = M_to_remove + (c_orig.row(i).transpose()*g.get_col_mean(i));
 		}
 		mu.col(j) = (c_temp-D).inverse() * ( T.col(j) - M_temp + M_to_remove);
 	}
@@ -301,7 +304,7 @@ std::pair<MatrixXd,MatrixXd> run_EM_missing(MatrixXd &c_orig,MatrixXd &means_ori
 	MatrixXd T1(p,k);
 	MatrixXd mu_fn;
 	mu_fn = mu.transpose();
-	multiply_y_pre(mu_fn,k,T1);
+	multiply_y_pre(mu_fn,k,T1,false);
 	MatrixXd mu_sum(k,1);
 	mu_sum = MatrixXd::Zero(k,1);
 	for(int j=0;j<n;j++)
@@ -315,13 +318,23 @@ std::pair<MatrixXd,MatrixXd> run_EM_missing(MatrixXd &c_orig,MatrixXd &means_ori
 			D = D + (mu.col(j) * mu.col(j).transpose());
 			mu_to_remove = mu_to_remove + (mu.col(j));
 		}
-		c_new.row(i) = (((mu_temp-D).inverse()) * (T1.row(i).transpose() -  ( means_orig(i,0) * (mu_sum-mu_to_remove)))).transpose();
-		means_new(i,0) = g.get_col_sum(i);
-		means_new(i,0) = means_new(i,0) -  (c_orig.row(i)*(mu_sum-mu_to_remove))(0,0);
-		means_new(i,0) = means_new(i,0) * 1.0 / (n-g.not_O_i[i].size());
+		c_new.row(i) = (((mu_temp-D).inverse()) * (T1.row(i).transpose() -  ( g.get_col_mean(i) * (mu_sum-mu_to_remove)))).transpose();
+		double mean;
+		mean = g.get_col_sum(i);
+		mean = mean -  (c_orig.row(i)*(mu_sum-mu_to_remove))(0,0);
+		mean = mean * 1.0 / (n-g.not_O_i[i].size());
+		g.update_col_mean(i,mean);
 	}
 
-	return make_pair(c_new,means_new);
+	return c_new;
+}
+
+MatrixXd run_EM(MatrixXd &c_orig){
+	
+	if(missing)
+		return run_EM_missing(c_orig);
+	else
+		return run_EM_not_missing(c_orig);
 }
 
 void print_vals(){
@@ -332,7 +345,7 @@ void print_vals(){
 	MatrixXd q_t(k,p);
 	q_t = Q.transpose();
 	MatrixXd b(k,n);
-	multiply_y_post(q_t,k,b);
+	multiply_y_post(q_t,k,b,true);
 	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
 	MatrixXd u_l; 
 	u_l = b_svd.matrixU();
@@ -373,9 +386,6 @@ void print_vals(){
 
 int main(int argc, char const *argv[]){
 
-	feenableexcept(FE_INVALID | FE_OVERFLOW);
-	
-	
 	clock_t io_begin = clock();
 	pair<double,double> prev_error = make_pair(0.0,0.0);
 	double prevnll=0.0;
@@ -386,20 +396,16 @@ int main(int argc, char const *argv[]){
     fast_mode = command_line_opts.fast_mode;
 	missing = command_line_opts.missing;
 
-	if(missing)
-		g.read_genotype_mailman_missing(command_line_opts.GENOTYPE_FILE_PATH);
-	else{
-		  if(fast_mode){
-			if(memory_efficient)
-				g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH);	
-			else
-				g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH);
-		}
+	
+	if(fast_mode){
+		if(memory_efficient)
+			g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH,missing);	
 		else
-			g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH);	
+			g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH,missing);
 	}
+	else
+		g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH,missing);	
 
-  
     MAX_ITER =  command_line_opts.max_iterations ; 
 	k_orig = command_line_opts.num_of_evec ;
 	debug = command_line_opts.debugmode ;
@@ -422,10 +428,7 @@ int main(int argc, char const *argv[]){
 
 	c = MatrixXd::Random(p,k);
 
-	//TODO: AEM in Missing
-	if(missing)
-		accelerated_em=0;
-
+	
 	for(int i=0;i<p;i++)
 		means(i,0) = g.get_col_mean(i);
 	
@@ -475,13 +478,7 @@ int main(int argc, char const *argv[]){
 			}
 		}
 		else{
-			if(missing){
-				std::pair<MatrixXd,MatrixXd> p = run_EM_missing(c,means);
-				c = p.first;
-				means = p.second;
-			}
-			else
-				c = run_EM(c);
+			c = run_EM(c);
 		}
 		
 		pair<double,double> e = get_error_norm(c);

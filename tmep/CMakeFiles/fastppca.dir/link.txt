@@ -1,1 +1,0 @@
-/usr/bin/c++   -O3 -g -march=native    CMakeFiles/fastppca.dir/src/fastppca.cpp.o CMakeFiles/fastppca.dir/src/genotype.cpp.o CMakeFiles/fastppca.dir/src/storage.cpp.o  -o fastppca -rdynamic 

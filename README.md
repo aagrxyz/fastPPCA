@@ -53,6 +53,7 @@ The values in the brackets are the command line flags for running the code witho
 * var_normalize (-vn) : The flag stating whether to perform varinance normalization or not (default: false).
 * memory_efficient (-mem) : The flag states whether to use a memory effecient version for the EM algorithm or not. The memory efficient version is a little slow than the not efficient version (default: false)
 * fast_mode (-nfm) : The flag whether to use a fast mode for the EM algorithm(default: true). Note: Setting the -nfm (NOT fast_mode) at command line will use a slow version of EM.
+* missing (-miss) : This flag states whether there is any missing data present in the genotype matrix or not. 
 
 ```
 
@@ -76,7 +77,7 @@ The genotype file is modified EigenStrat format.
 
 The first line of the genotype file contains two space separated integers denoting the number of SNPs and the number of Individuals respectively.
 
-Each line after represent each row of the genotype matrix where each row corresponds to a SNP and each entry is either 0,1 or 2 representing the number of allele in the corresponding individual at that SNP.
+Each line after represent each row of the genotype matrix where each row corresponds to a SNP and each entry is either 0,1 or 2 representing the number of allele in the corresponding individual at that SNP. If the entry is missing it is represented as 9.
 
 Look at the example.geno file in the examples directory to get a better understanding. 
 

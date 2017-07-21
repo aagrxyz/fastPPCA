@@ -7,6 +7,7 @@ class genotype {
 	std::vector< std::vector <bool> > msb;
 	std::vector< std::vector <bool> > lsb;
 	std::vector<int> columnsum;
+	std::vector<double> columnmeans;
 	public:
 		
 		int Nsnp,Nindv,Nsegments_hori,segment_size_hori,segment_size_ver,Nsegments_ver;
@@ -21,22 +22,19 @@ class genotype {
 		std::vector< std::vector<int> > not_O_j;
 		std::vector< std::vector<int> > not_O_i;
 		
-		void read_genotype_mailman_missing (std::string filename);
-		void read_genotype_mailman (std::string filename);
-		void read_genotype_eff (std::string filename);		
-		void read_genotype_naive (std::string filename);
-
-		float get_geno(int snpindex,int indvindex,bool var_normalize);
-		std::vector<float> get_geno_row(int snpindex);
-		std::vector<float> get_geno_col(int indvindex);
+		void init_means(bool is_missing);
+		void read_genotype_mailman (std::string filename,bool allow_missing);
+		void read_genotype_eff (std::string filename,bool allow_missing);		
+		void read_genotype_naive (std::string filename,bool allow_missing);
 
 
-		float get_col_mean(int snpindex);
-		float get_col_sum(int snpindex);		
-		float get_col_std(int snpindex);
+		double get_geno(int snpindex,int indvindex,bool var_normalize);
 
-		bool is_observed(int snpindex,int indvindex);
-		
+
+		double get_col_mean(int snpindex);
+		void update_col_mean(int snpindex,double value);
+		double get_col_sum(int snpindex);		
+		double get_col_std(int snpindex);		
 
 };
 
