@@ -1,2 +1,0 @@
-/home/aman/Desktop/Intern/fastPPCA/build/CMakeFiles/em_naive.dir
-/home/aman/Desktop/Intern/fastPPCA/build/CMakeFiles/fastppca.dir

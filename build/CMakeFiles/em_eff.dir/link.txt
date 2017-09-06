@@ -1,1 +1,0 @@
-/usr/bin/c++   -O3 -march=native    CMakeFiles/em_eff.dir/src/em_eff.cpp.o CMakeFiles/em_eff.dir/src/genotype.cpp.o CMakeFiles/em_eff.dir/src/storage.cpp.o  -o em_eff -rdynamic 
