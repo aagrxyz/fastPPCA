@@ -11,6 +11,7 @@
 #include "genotype.h"
 #include "mailman.h"
 #include "helper.h"
+#include "time.h"
 #include <Eigen/QR>
 #include "storage.h"
 #include <fenv.h>
@@ -18,6 +19,33 @@
 
 using namespace Eigen;
 using namespace std;
+
+
+struct timespec t0;
+struct timespec
+elapsed ()
+{
+  struct timespec ts;
+  clock_gettime (CLOCK_REALTIME, &ts);
+  if (ts.tv_nsec < t0.tv_nsec)
+    {
+      ts.tv_nsec = 1000000000 + ts.tv_nsec - t0.tv_nsec;
+      ts.tv_sec--;
+    }
+  ts.tv_sec -= t0.tv_sec;
+  return (ts);
+}
+
+
+
+int
+timelog (const char* message)
+{
+  struct timespec ts = elapsed ();
+  return (printf ("[%06ld.%09ld] %s\n", ts.tv_sec, ts.tv_nsec, message));
+}
+
+
 
 clock_t total_begin = clock();
 
@@ -43,38 +71,62 @@ bool missing=false;
 
 bool fast_mode = true;
 
+void print_timenl () {
+	clock_t c = clock();
+	double t = double(c) / CLOCKS_PER_SEC;
+	cout << "Time = " << t << endl ;	
+}
+
+void print_time () {
+	clock_t c = clock();
+	double t = double(c) / CLOCKS_PER_SEC;
+	cout << "Time = " << t  << " : ";	
+}
+
 void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_means){
 	double *sum_op = new double[Ncol_op];
 	double *yint_m = new double[(int)pow(3,g.segment_size_hori)];
+	if(debug){
+		print_time (); 
+		cout <<"Starting mailman on premultiply"<<endl;
+		cout << "Nops = " << Ncol_op << "\t" <<g.Nsegments_hori << endl;
+		cout << "Segment size = " << g.segment_size_hori << endl;
+		cout << "Matrix size = " <<g.segment_size_hori<<"\t" <<g.Nindv << endl;
+	}
 
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-		double *y = new double[g.segment_size_hori];
-		int seg_iter;
-		MatrixXd op_col(n,1);
-		op_col = op.col(k_iter);
-		sum_op[k_iter]=op_col.sum();
-
-		for(seg_iter=0;seg_iter<g.Nsegments_hori;seg_iter++){
+		sum_op[k_iter]=op.col(k_iter).sum();
+	}
+	for(int seg_iter=0;seg_iter<g.Nsegments_hori;seg_iter++){
+		std::vector<int> &p_tmp = g.p[seg_iter];
+		std::vector<unsigned int> &p_eff_tmp = g.p_eff[seg_iter];
+		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
+			double *y = new double[g.segment_size_hori];
 			if(seg_iter==g.Nsegments_hori-1){
 				if(g.Nsnp%g.segment_size_hori!=0){
 					double *y_final = new double[g.Nsnp%g.segment_size_hori];
 					if(memory_efficient)
-						mailman::fastmultiply3(g.Nsnp%g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y_final,g.Nbits_hori);
+						mailman::fastmultiply3(g.Nsnp%g.segment_size_hori,g.Nindv,p_eff_tmp,op,yint_m,y_final,g.Nbits_hori,k_iter);
 					else
-						mailman::fastmultiply2(g.Nsnp%g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y_final);
+						mailman::fastmultiply2(g.Nsnp%g.segment_size_hori,g.Nindv,p_tmp,op,yint_m,y_final,k_iter);
 					for(int p_iter=seg_iter*g.segment_size_hori;p_iter<seg_iter*g.segment_size_hori + g.Nsnp%g.segment_size_hori  && p_iter<g.Nsnp;p_iter++)
 						res(p_iter,k_iter) = y_final[p_iter-(seg_iter*g.segment_size_hori)];
-					break;
 				}
 			}
-			if(memory_efficient)
-				mailman::fastmultiply3(g.segment_size_hori,g.Nindv,g.p_eff[seg_iter],op_col,yint_m,y,g.Nbits_hori);
-			else
-				mailman::fastmultiply2(g.segment_size_hori,g.Nindv,g.p[seg_iter],op_col,yint_m,y);
-			int p_base = seg_iter*g.segment_size_hori; 
-			for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ) 
-				res(p_iter,k_iter) = y[p_iter-p_base];
-		}			
+			else{
+				if(memory_efficient)
+					mailman::fastmultiply3(g.segment_size_hori,g.Nindv,p_eff_tmp,op,yint_m,y,g.Nbits_hori,k_iter);
+				else
+					mailman::fastmultiply2(g.segment_size_hori,g.Nindv,p_tmp,op,yint_m,y,k_iter);
+				int p_base = seg_iter*g.segment_size_hori; 
+				for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ) 
+					res(p_iter,k_iter) = y[p_iter-p_base];
+			}
+		}
+	}
+	if(debug){
+		print_time (); 
+		cout <<"Ending mailman on premultiply"<<endl;
 	}
 	if(!subtract_means)
 		return;
@@ -89,7 +141,6 @@ void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_
 
 void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool subtract_means){
 	double *yint_e = new double[(int)pow(3,g.segment_size_ver)];
-
 	MatrixXd op;
 	op = op_orig.transpose();
 
@@ -100,36 +151,47 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool su
 		}
 	}
 
-	int Ncol_op = Nrows_op;
-	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-		double *y = new double[g.segment_size_ver];
-		int seg_iter;
-		MatrixXd op_col(p,1);
-		op_col = op.col(k_iter);
+	if(debug){
+		print_time (); cout <<"Starting mailman on postmultiply"<<endl;
+		cout << "Nops = " << Nrows_op << "\t" <<g.Nsegments_ver << endl;
+		cout << "Segment size = " << g.segment_size_ver << endl;
+		cout << "Matrix size = " <<g.segment_size_ver <<"\t" <<g.Nsnp << endl;
+	}
 
-		for(seg_iter=0; seg_iter < g.Nsegments_ver; seg_iter++){
+	int Ncol_op = Nrows_op;
+	for(int seg_iter=0; seg_iter < g.Nsegments_ver; seg_iter++){
+		vector<int> &q_tmp = g.q[seg_iter];
+		vector<unsigned int> &q_eff_tmp = g.q_eff[seg_iter];
+		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
+			double *y = new double[g.segment_size_ver];
 			if(seg_iter==g.Nsegments_ver-1){
 				if(g.Nindv%g.segment_size_ver!=0){
 					double *y_final = new double[g.Nindv%g.segment_size_ver];
 					if(memory_efficient)
-						mailman::fastmultiply3(g.Nindv%g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y_final,g.Nbits_ver);
+						mailman::fastmultiply3(g.Nindv%g.segment_size_ver,g.Nsnp,q_eff_tmp,op,yint_e,y_final,g.Nbits_ver,k_iter);
 					else
-						mailman::fastmultiply2(g.Nindv%g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y_final);
+						mailman::fastmultiply2(g.Nindv%g.segment_size_ver,g.Nsnp,q_tmp,op,yint_e,y_final,k_iter);
 					for(int n_iter=seg_iter*g.segment_size_ver ; n_iter<seg_iter*g.segment_size_ver + g.Nindv%g.segment_size_ver  && n_iter<g.Nindv ; n_iter++)
 						res(k_iter,n_iter) = y_final[n_iter-(seg_iter*g.segment_size_ver)];
-					break;
 				}
 
 			}
-			if(memory_efficient)
-				mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,g.q_eff[seg_iter],op_col,yint_e,y,g.Nbits_ver);
-			else
-				mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,g.q[seg_iter],op_col,yint_e,y);
-			int n_base = seg_iter*g.segment_size_ver; 
-			for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++ ) 
-				res(k_iter,n_iter) = y[n_iter-n_base];
+			else{
+				if(memory_efficient)
+					mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,q_eff_tmp,op,yint_e,y,g.Nbits_ver,k_iter);
+				else
+					mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,q_tmp,op,yint_e,y,k_iter);
+				int n_base = seg_iter*g.segment_size_ver; 
+				for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++ ) 
+					res(k_iter,n_iter) = y[n_iter-n_base];
+			}
 		}
 	}
+	if(debug){
+		print_time (); 
+		cout <<"Ending mailman on postmultiply"<<endl;
+	}
+
 	if(!subtract_means)
 		return;
 	double *sums_elements = new double[Ncol_op];
@@ -141,7 +203,6 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool su
 			sum_to_calc += g.get_col_mean(p_iter)*op(p_iter,k_iter);
 		sums_elements[k_iter] = sum_to_calc;
 	}
-	
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 		for(int n_iter=0;n_iter<n;n_iter++)
 			res(k_iter,n_iter) = res(k_iter,n_iter) - sums_elements[k_iter];
@@ -149,7 +210,6 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool su
 }
 
 void multiply_y_pre_naive(MatrixXd &op, int Ncol_op ,MatrixXd &res){
-
 	for(int p_iter=0;p_iter<p;p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 			double temp=0;
@@ -161,7 +221,6 @@ void multiply_y_pre_naive(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 }
 
 void multiply_y_post_naive(MatrixXd &op, int Nrows_op ,MatrixXd &res){
-
 	for(int n_iter=0;n_iter<n;n_iter++){
 		for(int k_iter=0;k_iter<Nrows_op;k_iter++){
 			double temp=0;
@@ -249,16 +308,26 @@ pair<double,double> get_error_norm(MatrixXd &c){
 }
 
 MatrixXd run_EM_not_missing(MatrixXd &c_orig){
+	if(debug){
+		print_time ();
+		cout << "Enter: run_EM_not_missing" << endl;
+	}
 	MatrixXd c_temp(k,p);
 	MatrixXd c_new(p,k);
 	c_temp = ( (c_orig.transpose()*c_orig).inverse() ) * (c_orig.transpose());
-
+	if(debug)
+		print_timenl ();
 	MatrixXd x_fn(k,n);
 	multiply_y_post(c_temp,k,x_fn,true);
-
+	if(debug)
+		print_timenl ();
 	MatrixXd x_temp(n,k);
 	x_temp = (x_fn.transpose()) * ((x_fn*(x_fn.transpose())).inverse());
 	multiply_y_pre(x_temp,k,c_new,true);
+	if(debug){
+		print_time ();
+		cout << "Exiting: run_EM_not_missing" << endl;
+	}
 	return c_new;
 }
 
@@ -358,12 +427,12 @@ void print_vals(){
 
 	ofstream evec_file;
 	evec_file.open((string(command_line_opts.OUTPUT_PATH)+string("evecs.txt")).c_str());
-	evec_file<< Q*u_k << endl;
+	evec_file<< std::setprecision(15) << Q*u_k << endl;
 	evec_file.close();
 	ofstream eval_file;
 	eval_file.open((string(command_line_opts.OUTPUT_PATH)+string("evals.txt")).c_str());
 	for(int kk =0 ; kk < k_orig ; kk++)
-		eval_file << (b_svd.singularValues())(kk)<<endl;
+		eval_file << std::setprecision(15)<< (b_svd.singularValues())(kk)<<endl;
 	eval_file.close();
 
 	d_k = MatrixXd::Zero(k_orig,k_orig);
@@ -387,6 +456,8 @@ void print_vals(){
 int main(int argc, char const *argv[]){
 
 	clock_t io_begin = clock();
+    clock_gettime (CLOCK_REALTIME, &t0);
+
 	pair<double,double> prev_error = make_pair(0.0,0.0);
 	double prevnll=0.0;
 
@@ -448,9 +519,21 @@ int main(int argc, char const *argv[]){
 
 		MatrixXd c1,c2,cint,r,v;
 		double a,nll;
+		if(debug){
+			print_time (); 
+			cout << "*********** Begin epoch " << i << "***********" << endl;
+		}
 		if(accelerated_em!=0){
+			if(debug){
+				print_time();
+				cout << "Before EM" << endl;
+			}
 			c1 = run_EM(c);
 			c2 = run_EM(c1);
+			if(debug){
+				print_time(); 
+				cout << "After EM but before acceleration" << endl;
+			}
 			r = c1-c;
 			v = (c2-c1) - r;
 			a = -1.0 * r.norm() / (v.norm()) ;
@@ -474,18 +557,25 @@ int main(int argc, char const *argv[]){
 			}
 			else if(accelerated_em==2){
 				cint = c - 2*a*r + a*a*v;
-				c = run_EM(cint);				
+				c = cint;
+				// c = run_EM(cint);				
 			}
 		}
 		else{
 			c = run_EM(c);
 		}
 		
-		pair<double,double> e = get_error_norm(c);
-		prevnll = e.second;
-		if(check_accuracy)
-			cout<<"Iteration "<<i+1<<"  "<<e.first<<"  "<<e.second<<endl;
-		prev_error = e;
+		if ( accelerated_em == 1 || check_accuracy ) {
+			pair<double,double> e = get_error_norm(c);
+			prevnll = e.second;
+			if(check_accuracy) 
+				cout<<"Iteration "<<i+1<<"  "<<e.first<<"  "<<e.second<<endl;
+			prev_error = e;
+		}
+		if(debug){
+			print_time (); 
+			cout << "*********** End epoch " << i << "***********" << endl;
+		}
 
 	}
 	clock_t it_end = clock();
