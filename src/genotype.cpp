@@ -4,7 +4,6 @@
 
 using namespace std;
 
-
 void genotype::init_means(bool is_missing){
 
 	columnmeans.resize(Nsnp);

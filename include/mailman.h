@@ -42,7 +42,6 @@ namespace mailman {
 		int d = pow(3,m);
 
 		for (int j  = 0 ;  j < m ; j++)  {
-			// int d = pow(3.,m-j-1);
 			d = d/3;
 			double c = 0 ; 
 			for (int i = 0 ; i < d; i++) { 
@@ -56,8 +55,6 @@ namespace mailman {
 
 	}
 
-
-
 	void fastmultiply3 (int m, int n , std::vector<unsigned> &p, Eigen::MatrixXd &x, double *yint, double *y,int Nbits,int col = 0){
 
 		memset (yint, 0, pow(3,m) * sizeof(yint));
@@ -66,9 +63,11 @@ namespace mailman {
 			int temp = extract_from_arr(i,Nbits,p);
 			yint[temp] += x(i,col);
 		}
+		int d = pow(3,m);
+		
 
 		for (int j  = 0 ;  j < m ; j++)  {
-			int d = pow(3.,m-j-1);
+			d = d/3;
 			double c = 0 ; 
 			for (int i = 0 ; i < d; i++) { 
 		        double z1 = yint[i+d];
@@ -81,58 +80,68 @@ namespace mailman {
 
 	}
 
+	// Efficient versions working on full matrix
+	void fastmultiply2 (int m, int n , int k, std::vector<int> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y){
+		
+		for (int i = 0 ; i < n; i++)  {
+			int l = p[i]  ;
+			for (int j = 0 ; j < k ; j ++)
+				yint[l*k + j] += x(i,j);
 
-/*
-	void fastmultiply2 (int m, int n , std::vector<int> &p, Eigen::MatrixXd &x, double *yint1, double *y, int col = 0){
-
-		int m0  = pow(3*1.,m);
-//		Eigen::VectorXd yint (m0);
-		Eigen::VectorXd yint =Eigen::VectorXd::Zero(m0);
-
-		for (int i = 0 ; i < n; i++)
-			yint(p[i]) += x(i,col);
-
-		for (int j  = 0 ;  j < m ; j++)  {
-			int d = pow(3.,m-j-1);
-			yint.head(d) = yint.segment (d,d)+yint.segment(2*d,d);
-			double c  = yint.segment (d,d).sum()+ 2* yint.segment(2*d,d).sum();
-			y[j] = c;
 		}
 
-	}*/
-
-/*
-	void fastmultiply2 (int m, int n , int k, std::vector<int> &p, Eigen::MatrixXd &x, double **yint, double **y){
-
-//		memset (yint, 0, pow(3,m) * sizeof(yint)  * k);
-		double *c = new double[k];
-
-		for (int i = 0 ; i < n; i++) { 
-			for (int col = 0 ; col <  k ; col++) {
-				yint[p[i]][col] += x(i,col);
-			}
-		}
-
+		int d = pow(3,m);
 		for (int j  = 0 ;  j < m ; j++)  {
-			int d = pow(3.,m-j-1);
-			for (int col = 0 ; col < k; col++)
-				c[col] = 0 ;
+			d =d /3;
+			for (int l = 0; l < k ; l++)
+				c [l] = 0 ; 
 			for (int i = 0 ; i < d; i++) { 
-				for (int col = 0; col < k; col++) {
-		        double z1 = yint[i+d][col];
-		        double z2 = yint[i+(2*d)][col];
-				yint[i][col] = yint[i][col] + z1 + z2;
-				c[col] += (z1 + 2*z2);
+				for (int l = 0; l < k ; l++){
+					double z1 = yint[l + (i + d)*k];
+					double z2 = yint[l + (i +2*d)*k];
+					yint[l+(i+d)*k] = 0;
+					yint[l+(i+2*d)*k] = 0 ;
+					yint[l+i*k] = yint[l+i*k] + z1 + z2;
+					c[l] += (z1 + 2*z2);
 				}
 			}
-			for (int col = 0 ; col < k; col++)
-				y[j][col] = c[col];
+			for (int l = 0; l < k ; l++)
+				y[j][l] = c[l];
+		}
+		for (int l = 0; l < k ; l++)
+			yint[l] = 0;
+	}
+
+	void fastmultiply3 (int m, int n , int k, std::vector<unsigned> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y,int Nbits){
+		
+		for (int i = 0 ; i < n; i++)  {
+			int l = extract_from_arr(i,Nbits,p);
+			for (int j = 0 ; j < k ; j ++)
+				yint[l*k + j] += x(i,j);
+
 		}
 
-	}*/
-
-
-
+		int d = pow(3,m);
+		for (int j  = 0 ;  j < m ; j++)  {
+			d =d /3;
+			for (int l = 0; l < k ; l++)
+				c [l] = 0 ; 
+			for (int i = 0 ; i < d; i++) { 
+				for (int l = 0; l < k ; l++){
+					double z1 = yint[l + (i + d)*k];
+					double z2 = yint[l + (i +2*d)*k];
+					yint[l+(i+d)*k] = 0;
+					yint[l+(i+2*d)*k] = 0 ;
+					yint[l+i*k] = yint[l+i*k] + z1 + z2;
+					c[l] += (z1 + 2*z2);
+				}
+			}
+			for (int l = 0; l < k ; l++)
+				y[j][l] = c[l];
+		}
+		for (int l = 0; l < k ; l++)
+			yint[l] = 0;
+	}
 
 
 }

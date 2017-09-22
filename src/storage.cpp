@@ -40,9 +40,6 @@ int extract_from_arr(int j,int beta,std::vector<unsigned> &arr){
         res = (lastXbits << (add-32)) | (arr[idx+1] >> (64-add));       
     }
     else{
-        // unsigned  mask;
-        // mask = ((1 << beta) - 1) << (32-add);
-        // res = (arr[idx] & mask) >> (32-add);
         res = (arr[idx]<<rem)>>(32-beta);
     }
     return res;

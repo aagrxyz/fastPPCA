@@ -14,17 +14,27 @@
 #include "time.h"
 #include <Eigen/QR>
 #include "storage.h"
-#include <fenv.h>
 
 
 using namespace Eigen;
 using namespace std;
 
+// Storing in RowMajor Form
+typedef Matrix<double, Dynamic, Dynamic, RowMajor> MatrixXdr;
+
+//Intermediate Variables
+int blocksize;
+double *partialsums;
+double *sum_op;
+double *yint_e;
+double *yint_m;
+double **y_e;
+double **y_m;
+
 
 struct timespec t0;
 struct timespec
-elapsed ()
-{
+elapsed (){
   struct timespec ts;
   clock_gettime (CLOCK_REALTIME, &ts);
   if (ts.tv_nsec < t0.tv_nsec)
@@ -36,16 +46,10 @@ elapsed ()
   return (ts);
 }
 
-
-
-int
-timelog (const char* message)
-{
+int timelog (const char* message){
   struct timespec ts = elapsed ();
   return (printf ("[%06ld.%09ld] %s\n", ts.tv_sec, ts.tv_nsec, message));
 }
-
-
 
 clock_t total_begin = clock();
 
@@ -54,10 +58,10 @@ genotype g;
 int k,p,n;
 int k_orig;
 
-MatrixXd c; //(p,k)
-MatrixXd x; //(k,n)
-MatrixXd v; //(p,k)
-MatrixXd means; //(p,1)
+MatrixXdr c; //(p,k)
+MatrixXdr x; //(k,n)
+MatrixXdr v; //(p,k)
+MatrixXdr means; //(p,1)
 
 options command_line_opts;
 
@@ -83,9 +87,8 @@ void print_time () {
 	cout << "Time = " << t  << " : ";	
 }
 
-void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_means){
-	double *sum_op = new double[Ncol_op];
-	double *yint_m = new double[(int)pow(3,g.segment_size_hori)];
+void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtract_means){
+	
 	if(debug){
 		print_time (); 
 		cout <<"Starting mailman on premultiply"<<endl;
@@ -97,33 +100,30 @@ void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_
 	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 		sum_op[k_iter]=op.col(k_iter).sum();
 	}
-	for(int seg_iter=0;seg_iter<g.Nsegments_hori;seg_iter++){
-		std::vector<int> &p_tmp = g.p[seg_iter];
-		std::vector<unsigned int> &p_eff_tmp = g.p_eff[seg_iter];
-		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-			double *y = new double[g.segment_size_hori];
-			if(seg_iter==g.Nsegments_hori-1){
-				if(g.Nsnp%g.segment_size_hori!=0){
-					double *y_final = new double[g.Nsnp%g.segment_size_hori];
-					if(memory_efficient)
-						mailman::fastmultiply3(g.Nsnp%g.segment_size_hori,g.Nindv,p_eff_tmp,op,yint_m,y_final,g.Nbits_hori,k_iter);
-					else
-						mailman::fastmultiply2(g.Nsnp%g.segment_size_hori,g.Nindv,p_tmp,op,yint_m,y_final,k_iter);
-					for(int p_iter=seg_iter*g.segment_size_hori;p_iter<seg_iter*g.segment_size_hori + g.Nsnp%g.segment_size_hori  && p_iter<g.Nsnp;p_iter++)
-						res(p_iter,k_iter) = y_final[p_iter-(seg_iter*g.segment_size_hori)];
-				}
-			}
-			else{
-				if(memory_efficient)
-					mailman::fastmultiply3(g.segment_size_hori,g.Nindv,p_eff_tmp,op,yint_m,y,g.Nbits_hori,k_iter);
-				else
-					mailman::fastmultiply2(g.segment_size_hori,g.Nindv,p_tmp,op,yint_m,y,k_iter);
-				int p_base = seg_iter*g.segment_size_hori; 
-				for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ) 
-					res(p_iter,k_iter) = y[p_iter-p_base];
-			}
+
+	for(int seg_iter=0;seg_iter<g.Nsegments_hori-1;seg_iter++){
+		if(memory_efficient)
+			mailman::fastmultiply3(g.segment_size_hori,g.Nindv,Ncol_op,g.p_eff[seg_iter],op,yint_m,partialsums,y_m,g.Nbits_hori);
+		else
+			mailman::fastmultiply2(g.segment_size_hori,g.Nindv,Ncol_op,g.p[seg_iter],op,yint_m,partialsums,y_m);
+		int p_base = seg_iter*g.segment_size_hori; 
+		for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ){
+			for(int k_iter=0;k_iter<Ncol_op;k_iter++) 
+				res(p_iter,k_iter) = y_m[p_iter-p_base][k_iter];
 		}
 	}
+
+	int last_seg_size = (g.Nsnp%g.segment_size_hori !=0 ) ? g.Nsnp%g.segment_size_hori : g.segment_size_hori;
+	if(memory_efficient)
+		mailman::fastmultiply3(last_seg_size,g.Nindv,Ncol_op,g.p_eff[g.Nsegments_hori-1],op,yint_m,partialsums,y_m,g.Nbits_hori);
+	else
+		mailman::fastmultiply2(last_seg_size,g.Nindv,Ncol_op,g.p[g.Nsegments_hori-1],op,yint_m,partialsums,y_m);	
+	int p_base = (g.Nsegments_hori-1)*g.segment_size_hori;
+	for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++){
+		for(int k_iter=0;k_iter<Ncol_op;k_iter++) 
+			res(p_iter,k_iter) = y_m[p_iter-p_base][k_iter];
+	}
+
 	if(debug){
 		print_time (); 
 		cout <<"Ending mailman on premultiply"<<endl;
@@ -139,9 +139,8 @@ void multiply_y_pre_fast(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_
 	}	
 }
 
-void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool subtract_means){
-	double *yint_e = new double[(int)pow(3,g.segment_size_ver)];
-	MatrixXd op;
+void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool subtract_means){
+	MatrixXdr op;
 	op = op_orig.transpose();
 
 	if(var_normalize){
@@ -159,34 +158,33 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool su
 	}
 
 	int Ncol_op = Nrows_op;
-	for(int seg_iter=0; seg_iter < g.Nsegments_ver; seg_iter++){
-		vector<int> &q_tmp = g.q[seg_iter];
-		vector<unsigned int> &q_eff_tmp = g.q_eff[seg_iter];
-		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-			double *y = new double[g.segment_size_ver];
-			if(seg_iter==g.Nsegments_ver-1){
-				if(g.Nindv%g.segment_size_ver!=0){
-					double *y_final = new double[g.Nindv%g.segment_size_ver];
-					if(memory_efficient)
-						mailman::fastmultiply3(g.Nindv%g.segment_size_ver,g.Nsnp,q_eff_tmp,op,yint_e,y_final,g.Nbits_ver,k_iter);
-					else
-						mailman::fastmultiply2(g.Nindv%g.segment_size_ver,g.Nsnp,q_tmp,op,yint_e,y_final,k_iter);
-					for(int n_iter=seg_iter*g.segment_size_ver ; n_iter<seg_iter*g.segment_size_ver + g.Nindv%g.segment_size_ver  && n_iter<g.Nindv ; n_iter++)
-						res(k_iter,n_iter) = y_final[n_iter-(seg_iter*g.segment_size_ver)];
-				}
 
-			}
-			else{
-				if(memory_efficient)
-					mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,q_eff_tmp,op,yint_e,y,g.Nbits_ver,k_iter);
-				else
-					mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,q_tmp,op,yint_e,y,k_iter);
-				int n_base = seg_iter*g.segment_size_ver; 
-				for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++ ) 
-					res(k_iter,n_iter) = y[n_iter-n_base];
-			}
+
+	for(int seg_iter=0;seg_iter<g.Nsegments_ver-1;seg_iter++){
+		if(memory_efficient)
+			mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,Ncol_op,g.q_eff[seg_iter],op,yint_e,partialsums,y_e,g.Nbits_ver);
+		else
+			mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,Ncol_op,g.q[seg_iter],op,yint_e,partialsums,y_e);
+		int n_base = seg_iter*g.segment_size_ver; 
+		for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++)  {
+			for(int k_iter=0;k_iter<Ncol_op;k_iter++)
+				res(k_iter,n_iter) = y_e[n_iter-n_base][k_iter];
 		}
 	}
+
+
+	int last_seg_size = (g.Nindv%g.segment_size_ver !=0 ) ? g.Nindv%g.segment_size_ver : g.segment_size_ver;
+	if(memory_efficient)
+		mailman::fastmultiply3(last_seg_size,g.Nsnp,Ncol_op,g.q_eff[g.Nsegments_ver-1],op,yint_e,partialsums,y_e,g.Nbits_ver);
+	else
+		mailman::fastmultiply2(last_seg_size,g.Nsnp,Ncol_op,g.q[g.Nsegments_ver-1],op,yint_e,partialsums,y_e);	
+	int n_base = (g.Nsegments_ver-1)*g.segment_size_ver; 
+	for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++)  {
+		for(int k_iter=0;k_iter<Ncol_op;k_iter++)
+			res(k_iter,n_iter) = y_e[n_iter-n_base][k_iter];
+	}
+
+
 	if(debug){
 		print_time (); 
 		cout <<"Ending mailman on postmultiply"<<endl;
@@ -209,7 +207,7 @@ void multiply_y_post_fast(MatrixXd &op_orig, int Nrows_op, MatrixXd &res,bool su
 	}
 }
 
-void multiply_y_pre_naive(MatrixXd &op, int Ncol_op ,MatrixXd &res){
+void multiply_y_pre_naive(MatrixXdr &op, int Ncol_op ,MatrixXdr &res){
 	for(int p_iter=0;p_iter<p;p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 			double temp=0;
@@ -220,7 +218,7 @@ void multiply_y_pre_naive(MatrixXd &op, int Ncol_op ,MatrixXd &res){
 	}
 }
 
-void multiply_y_post_naive(MatrixXd &op, int Nrows_op ,MatrixXd &res){
+void multiply_y_post_naive(MatrixXdr &op, int Nrows_op ,MatrixXdr &res){
 	for(int n_iter=0;n_iter<n;n_iter++){
 		for(int k_iter=0;k_iter<Nrows_op;k_iter++){
 			double temp=0;
@@ -231,47 +229,47 @@ void multiply_y_post_naive(MatrixXd &op, int Nrows_op ,MatrixXd &res){
 	}
 }
 
-void multiply_y_post(MatrixXd &op, int Nrows_op ,MatrixXd &res,bool subtract_means){
+void multiply_y_post(MatrixXdr &op, int Nrows_op ,MatrixXdr &res,bool subtract_means){
     if(fast_mode)
         multiply_y_post_fast(op,Nrows_op,res,subtract_means);
     else
         multiply_y_post_naive(op,Nrows_op,res);
 }
 
-void multiply_y_pre(MatrixXd &op, int Ncol_op ,MatrixXd &res,bool subtract_means){
+void multiply_y_pre(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtract_means){
     if(fast_mode)
         multiply_y_pre_fast(op,Ncol_op,res,subtract_means);
     else
         multiply_y_pre_naive(op,Ncol_op,res);
 }
 
-pair<double,double> get_error_norm(MatrixXd &c){
-	HouseholderQR<MatrixXd> qr(c);
-	MatrixXd Q;
-	Q = qr.householderQ() * MatrixXd::Identity(p,k);
-	MatrixXd q_t(k,p);
+pair<double,double> get_error_norm(MatrixXdr &c){
+	HouseholderQR<MatrixXdr> qr(c);
+	MatrixXdr Q;
+	Q = qr.householderQ() * MatrixXdr::Identity(p,k);
+	MatrixXdr q_t(k,p);
 	q_t = Q.transpose();
-	MatrixXd b(k,n);
+	MatrixXdr b(k,n);
 	multiply_y_post(q_t,k,b,true);
-	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
-	MatrixXd u_l,d_l,v_l; 
+	JacobiSVD<MatrixXdr> b_svd(b, ComputeThinU | ComputeThinV);
+	MatrixXdr u_l,d_l,v_l; 
 	if(fast_mode)
         u_l = b_svd.matrixU();
     else
         u_l = Q * b_svd.matrixU();
 	v_l = b_svd.matrixV();
-	d_l = MatrixXd::Zero(k,k);
+	d_l = MatrixXdr::Zero(k,k);
 	for(int kk=0;kk<k; kk++)
 		d_l(kk,kk) = (b_svd.singularValues())(kk);
 	
-	MatrixXd u_k,v_k,d_k;
+	MatrixXdr u_k,v_k,d_k;
 	u_k = u_l.leftCols(k_orig);
 	v_k = v_l.leftCols(k_orig);
-	d_k = MatrixXd::Zero(k_orig,k_orig);
+	d_k = MatrixXdr::Zero(k_orig,k_orig);
 	for(int kk =0 ; kk < k_orig ; kk++)
 		d_k(kk,kk)  =(b_svd.singularValues())(kk);
 
-	MatrixXd b_l,b_k;
+	MatrixXdr b_l,b_k;
     b_l = u_l * d_l * (v_l.transpose());
     b_k = u_k * d_k * (v_k.transpose());
 
@@ -291,8 +289,8 @@ pair<double,double> get_error_norm(MatrixXd &c){
         return make_pair(norm_k,norm_l);
     }
     else{
-        MatrixXd e_l(p,n);
-        MatrixXd e_k(p,n);
+        MatrixXdr e_l(p,n);
+        MatrixXdr e_k(p,n);
         for(int p_iter=0;p_iter<p;p_iter++)
         {
             for(int n_iter=0;n_iter<n;n_iter++){
@@ -307,21 +305,22 @@ pair<double,double> get_error_norm(MatrixXd &c){
     }
 }
 
-MatrixXd run_EM_not_missing(MatrixXd &c_orig){
+MatrixXdr run_EM_not_missing(MatrixXdr &c_orig){
 	if(debug){
 		print_time ();
 		cout << "Enter: run_EM_not_missing" << endl;
 	}
-	MatrixXd c_temp(k,p);
-	MatrixXd c_new(p,k);
+	MatrixXdr c_temp(k,p);
+	MatrixXdr c_new(p,k);
 	c_temp = ( (c_orig.transpose()*c_orig).inverse() ) * (c_orig.transpose());
 	if(debug)
 		print_timenl ();
-	MatrixXd x_fn(k,n);
+	MatrixXdr x_fn(k,n);
 	multiply_y_post(c_temp,k,x_fn,true);
+	x = x_fn;
 	if(debug)
 		print_timenl ();
-	MatrixXd x_temp(n,k);
+	MatrixXdr x_temp(n,k);
 	x_temp = (x_fn.transpose()) * ((x_fn*(x_fn.transpose())).inverse());
 	multiply_y_pre(x_temp,k,c_new,true);
 	if(debug){
@@ -331,7 +330,10 @@ MatrixXd run_EM_not_missing(MatrixXd &c_orig){
 	return c_new;
 }
 
-MatrixXd run_EM_missing(MatrixXd &c_orig){
+MatrixXdr run_EM_missing(MatrixXdr &c_orig_row){
+	// TODO: Complete this part
+	MatrixXd c_orig = c_orig_row;
+	/*
 	MatrixXd c_new(p,k);
 
 	MatrixXd mu(k,n);
@@ -394,11 +396,13 @@ MatrixXd run_EM_missing(MatrixXd &c_orig){
 		mean = mean * 1.0 / (n-g.not_O_i[i].size());
 		g.update_col_mean(i,mean);
 	}
-
-	return c_new;
+	*/
+	cout<<"To Be implemented"<<endl;
+	MatrixXdr to_return_row = c_orig_row;
+	return to_return_row;
 }
 
-MatrixXd run_EM(MatrixXd &c_orig){
+MatrixXdr run_EM(MatrixXdr &c_orig){
 	
 	if(missing)
 		return run_EM_missing(c_orig);
@@ -408,20 +412,20 @@ MatrixXd run_EM(MatrixXd &c_orig){
 
 void print_vals(){
 
-	HouseholderQR<MatrixXd> qr(c);
-	MatrixXd Q;
-	Q = qr.householderQ() * MatrixXd::Identity(p,k);
-	MatrixXd q_t(k,p);
+	HouseholderQR<MatrixXdr> qr(c);
+	MatrixXdr Q;
+	Q = qr.householderQ() * MatrixXdr::Identity(p,k);
+	MatrixXdr q_t(k,p);
 	q_t = Q.transpose();
-	MatrixXd b(k,n);
+	MatrixXdr b(k,n);
 	multiply_y_post(q_t,k,b,true);
-	JacobiSVD<MatrixXd> b_svd(b, ComputeThinU | ComputeThinV);
-	MatrixXd u_l; 
+	JacobiSVD<MatrixXdr> b_svd(b, ComputeThinU | ComputeThinV);
+	MatrixXdr u_l; 
 	u_l = b_svd.matrixU();
-	MatrixXd v_l;
+	MatrixXdr v_l;
 	v_l = b_svd.matrixV();
-	MatrixXd u_k;
-	MatrixXd v_k,d_k;
+	MatrixXdr u_k;
+	MatrixXdr v_k,d_k;
 	u_k = u_l.leftCols(k_orig);
 	v_k = v_l.leftCols(k_orig);
 
@@ -435,11 +439,11 @@ void print_vals(){
 		eval_file << std::setprecision(15)<< (b_svd.singularValues())(kk)<<endl;
 	eval_file.close();
 
-	d_k = MatrixXd::Zero(k_orig,k_orig);
+	d_k = MatrixXdr::Zero(k_orig,k_orig);
 	for(int kk =0 ; kk < k_orig ; kk++)
 		d_k(kk,kk)  =(b_svd.singularValues())(kk);
 
-	MatrixXd x_k;
+	MatrixXdr x_k;
 	x_k = d_k * (v_k.transpose());
 	if(debug){
 		ofstream c_file;
@@ -448,7 +452,7 @@ void print_vals(){
 		c_file.close();
 		ofstream x_file;
 		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals.txt")).c_str());
-		x_file<<x_k<<endl;
+		x_file<<x<<endl;
 		x_file.close();
 	}
 }
@@ -497,7 +501,28 @@ int main(int argc, char const *argv[]){
 
 	//TODO: Initialization of c
 
-	c = MatrixXd::Random(p,k);
+	c = MatrixXdr::Random(p,k);
+
+
+	// Initial intermediate data structures
+	blocksize = k;
+	int hsegsize = g.segment_size_hori; 	// = log_3(n)
+	int hsize = pow(3,hsegsize);		// 
+	int vsegsize = g.segment_size_ver; 	// = log_3(p)
+	int vsize = pow(3,vsegsize);		// 
+
+	partialsums = new double [blocksize];
+	sum_op = new double[blocksize];
+
+	yint_e = new double [vsize*blocksize];
+	yint_m = new double [hsize*blocksize];
+	y_e  = new double*[vsegsize];
+	for (int i = 0 ; i < vsegsize ; i++)
+		y_e[i] = new double[blocksize];
+	y_m = new double*[hsegsize];
+	for (int i = 0 ; i < hsegsize ; i++)
+		y_m[i] = new double[blocksize];
+	
 
 	
 	for(int i=0;i<p;i++)
@@ -517,7 +542,7 @@ int main(int argc, char const *argv[]){
 	clock_t it_begin = clock();
 	for(int i=0;i<MAX_ITER;i++){
 
-		MatrixXd c1,c2,cint,r,v;
+		MatrixXdr c1,c2,cint,r,v;
 		double a,nll;
 		if(debug){
 			print_time (); 
@@ -587,5 +612,20 @@ int main(int argc, char const *argv[]){
 	double avg_it_time = double(it_end - it_begin) / (MAX_ITER * 1.0 * CLOCKS_PER_SEC);
 	double total_time = double(total_end - total_begin) / CLOCKS_PER_SEC;
 	cout<<"IO Time:  "<< io_time << "\nAVG Iteration Time:  "<<avg_it_time<<"\nTotal runtime:   "<<total_time<<endl;
+
+
+	delete[] partialsums;
+	delete[] sum_op;
+	delete[] yint_e; 
+	delete[] yint_m;
+
+	for (int i  = 0 ; i < hsegsize; i++)
+		delete[] y_m [i]; 
+	delete[] y_m;
+
+	for (int i  = 0 ; i < vsegsize; i++)
+		delete[] y_e[i]; 
+	delete[] y_e;
+
 	return 0;
 }
