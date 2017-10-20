@@ -317,7 +317,6 @@ MatrixXdr run_EM_not_missing(MatrixXdr &c_orig){
 		print_timenl ();
 	MatrixXdr x_fn(k,n);
 	multiply_y_post(c_temp,k,x_fn,true);
-	x = x_fn;
 	if(debug)
 		print_timenl ();
 	MatrixXdr x_temp(n,k);
@@ -330,24 +329,22 @@ MatrixXdr run_EM_not_missing(MatrixXdr &c_orig){
 	return c_new;
 }
 
-MatrixXdr run_EM_missing(MatrixXdr &c_orig_row){
-	// TODO: Complete this part
-	MatrixXd c_orig = c_orig_row;
-	/*
-	MatrixXd c_new(p,k);
+MatrixXdr run_EM_missing(MatrixXdr &c_orig){
+	
+	MatrixXdr c_new(p,k);
 
-	MatrixXd mu(k,n);
+	MatrixXdr mu(k,n);
 	
 	// E step
-	MatrixXd c_temp(k,k);
-	c_temp = (c_orig.transpose()*c_orig)  ;
+	MatrixXdr c_temp(k,k);
+	c_temp = c_orig.transpose() * c_orig;
 
-	MatrixXd T(k,n);
-	MatrixXd c_fn;
+	MatrixXdr T(k,n);
+	MatrixXdr c_fn;
 	c_fn = c_orig.transpose();
 	multiply_y_post(c_fn,k,T,false);
 
-	MatrixXd M_temp(k,1);
+	MatrixXdr M_temp(k,1);
 	for(int k_iter=0;k_iter<k;k_iter++){
 		double sum=0.0;
 		for(int p_iter=0;p_iter<p;p_iter++){
@@ -357,37 +354,40 @@ MatrixXdr run_EM_missing(MatrixXdr &c_orig_row){
 	}
 
 	for(int j=0;j<n;j++){
-		MatrixXd D(k,k),M_to_remove(k,1);
-		D = MatrixXd::Zero(k,k);
-		M_to_remove = MatrixXd::Zero(k,1);
+		MatrixXdr D(k,k);
+		MatrixXdr M_to_remove(k,1);
+		D = MatrixXdr::Zero(k,k);
+		M_to_remove = MatrixXdr::Zero(k,1);
 		for(int i=0;i<g.not_O_j[j].size();i++){
-			cout<<"entered E step not "<<endl;
-			D = D + (c_orig.row(i).transpose() * c_orig.row(i));
-			M_to_remove = M_to_remove + (c_orig.row(i).transpose()*g.get_col_mean(i));
+			int idx = g.not_O_j[j][i];
+			D = D + (c_orig.row(idx).transpose() * c_orig.row(idx));
+			M_to_remove = M_to_remove + (c_orig.row(idx).transpose()*g.get_col_mean(idx));
 		}
 		mu.col(j) = (c_temp-D).inverse() * ( T.col(j) - M_temp + M_to_remove);
 	}
 
 	// M step
 
-	MatrixXd mu_temp(k,k);
+	MatrixXdr mu_temp(k,k);
 	mu_temp = mu * mu.transpose();
-	MatrixXd T1(p,k);
-	MatrixXd mu_fn;
+	MatrixXdr T1(p,k);
+	MatrixXdr mu_fn;
 	mu_fn = mu.transpose();
 	multiply_y_pre(mu_fn,k,T1,false);
-	MatrixXd mu_sum(k,1);
-	mu_sum = MatrixXd::Zero(k,1);
+	MatrixXdr mu_sum(k,1);
+	mu_sum = MatrixXdr::Zero(k,1);
 	for(int j=0;j<n;j++)
 		mu_sum += mu.col(j);
 	
 	for(int i=0;i<p;i++){
-		MatrixXd D(k,k),mu_to_remove(k,1);
-		D = MatrixXd::Zero(k,k);
-		mu_to_remove = MatrixXd::Zero(k,1);
+		MatrixXdr D(k,k);
+		MatrixXdr mu_to_remove(k,1);
+		D = MatrixXdr::Zero(k,k);
+		mu_to_remove = MatrixXdr::Zero(k,1);
 		for(int j=0;j<g.not_O_i[i].size();j++){
-			D = D + (mu.col(j) * mu.col(j).transpose());
-			mu_to_remove = mu_to_remove + (mu.col(j));
+			int idx = g.not_O_i[i][j];
+			D = D + (mu.col(idx) * mu.col(idx).transpose());
+			mu_to_remove = mu_to_remove + (mu.col(idx));
 		}
 		c_new.row(i) = (((mu_temp-D).inverse()) * (T1.row(i).transpose() -  ( g.get_col_mean(i) * (mu_sum-mu_to_remove)))).transpose();
 		double mean;
@@ -396,10 +396,7 @@ MatrixXdr run_EM_missing(MatrixXdr &c_orig_row){
 		mean = mean * 1.0 / (n-g.not_O_i[i].size());
 		g.update_col_mean(i,mean);
 	}
-	*/
-	cout<<"To Be implemented"<<endl;
-	MatrixXdr to_return_row = c_orig_row;
-	return to_return_row;
+	return c_new;
 }
 
 MatrixXdr run_EM(MatrixXdr &c_orig){

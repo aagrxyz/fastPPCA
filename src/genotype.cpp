@@ -62,7 +62,7 @@ void genotype::read_genotype_naive (std::string filename,bool allow_missing){
 			}
 			else if(val==9 && allow_missing){
 				not_O_i[i].push_back(j);
-				not_O_i[j].push_back(i);
+				not_O_j[j].push_back(i);
 				l.push_back(false);
 				m.push_back(false);
 			}
@@ -131,7 +131,7 @@ void genotype::read_genotype_mailman (std::string filename,bool allow_missing){
 				p[horiz_seg_no][j] = 3 * p[horiz_seg_no][j] ;
 				q[ver_seg_no][i] = 3*q[ver_seg_no][i];
 				not_O_i[i].push_back(j);
-				not_O_i[j].push_back(i);				
+				not_O_j[j].push_back(i);				
 			}
 			else{
 				cout<<"Invalid entry in Genotype Matrix"<<endl;
@@ -204,7 +204,7 @@ void genotype::read_genotype_eff (std::string filename,bool allow_missing){
 				add_to_arr(temp,j,Nbits_hori,p_eff[horiz_seg_no]);
 				add_to_arr(3*extract_from_arr(i,Nbits_ver,q_eff[ver_seg_no]),i,Nbits_ver,q_eff[ver_seg_no]);
 				not_O_i[i].push_back(j);
-				not_O_i[j].push_back(i);				
+				not_O_j[j].push_back(i);				
 			}
 			else{
 				cout<<"Invalid entry in Genotype Matrix"<<endl;
@@ -244,7 +244,7 @@ double genotype::get_col_sum(int snpindex){
 	return temp;
 }
 
-void genotype::update_col_mean(int snpindex,double	 value){
+void genotype::update_col_mean(int snpindex,double value){
 	columnmeans[snpindex] = value;
 }
 
