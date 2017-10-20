@@ -488,6 +488,9 @@ int main(int argc, char const *argv[]){
 	p = g.Nsnp;
 	n = g.Nindv;
 	convergence_limit = command_line_opts.convergence_limit;
+	bool toStop=false;
+	if(convergence_limit!=-1)
+		toStop=true;
 	srand((unsigned int) time(0));
 	c.resize(p,k);
 	x.resize(k,n);
@@ -587,11 +590,15 @@ int main(int argc, char const *argv[]){
 			c = run_EM(c);
 		}
 		
-		if ( accelerated_em == 1 || check_accuracy ) {
+		if ( accelerated_em == 1 || check_accuracy || toStop) {
 			pair<double,double> e = get_error_norm(c);
 			prevnll = e.second;
 			if(check_accuracy) 
 				cout<<"Iteration "<<i+1<<"  "<<e.first<<"  "<<e.second<<endl;
+			if(abs(e.first-prev_error.first)<=convergence_limit){
+				cout<<"Breaking after "<<i+1<<" iterations"<<endl;
+				break;
+			}
 			prev_error = e;
 		}
 		if(debug){
