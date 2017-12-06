@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.12)
 project(EM_C++)
 
-include_directories(include)
+include_directories(include/)
 
 set(CMAKE_CXX_FLAGS "-O3")
 

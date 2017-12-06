@@ -8,8 +8,15 @@ class genotype {
 	std::vector< std::vector <bool> > lsb;
 	std::vector<int> columnsum;
 	std::vector<double> columnmeans;
-	public:
-		
+	
+	public:	
+		unsigned char mask;
+    	int wordsize;
+	    unsigned int unitsperword;
+    	int unitsize;
+	 	int nrow, ncol;
+		unsigned char *gtype;
+
 		int Nsnp,Nindv,Nsegments_hori,segment_size_hori,segment_size_ver,Nsegments_ver;
 		int Nbits_hori,Nbits_ver;
 		int Nelements_hori,Nelements_ver;
@@ -26,6 +33,13 @@ class genotype {
 		void read_genotype_mailman (std::string filename,bool allow_missing);
 		void read_genotype_eff (std::string filename,bool allow_missing);		
 		void read_genotype_naive (std::string filename,bool allow_missing);
+		void read_plink (std::string filenameprefix, bool allow_missing);
+		void read_bed (std::string filename, bool allow_missing )  ;
+		void read_bed_missing (std::string filename )  ;
+		void read_bed_nomissing (std::string filename )  ;
+		void read_fam (std::string filename )  ;
+		void read_bim (std::string filename )  ;
+		void set_metadata () ;
 
 
 		double get_geno(int snpindex,int indvindex,bool var_normalize);

@@ -218,8 +218,6 @@ void genotype::read_genotype_eff (std::string filename,bool allow_missing){
 	init_means(allow_missing);	
 }
 
-
-
 double genotype::get_geno(int snpindex,int indvindex,bool var_normalize=false){
 	double m = msb[snpindex][indvindex];
 	double l = lsb[snpindex][indvindex];
@@ -253,6 +251,175 @@ double genotype::get_col_std(int snpindex){
 	double temp = sqrt(p_i*(1-(0.5*p_i))) ; 
 	return temp;
 }
+
+
+// New Functions
+
+template<typename T>
+static std::istream & binary_read(std::istream& stream, T& value){
+	return stream.read(reinterpret_cast<char*>(&value), sizeof(T));
+}
+
+template <class T>
+inline void printvector(vector<T> &t, string delim = " ", bool newline = false){
+		for (int i = 0; i < t.size(); i++)
+				cout << t[i] << delim;
+        if (newline)
+            cout << endl;
+}
+
+template <class T>
+inline void printvectornl(vector<T> &t, string delim = " "){
+    printvector (t, delim, true);
+}
+
+
+void genotype::read_bim (string filename){
+	ifstream inp(filename.c_str());
+	if (!inp.is_open()){
+		cerr << "Error reading file "<< filename <<endl;
+		exit(1);
+	}
+	string line;
+	int j = 0 ;
+	int linenum = 0 ;
+	while(std::getline (inp, line)){
+		linenum ++;
+		char c = line[0];
+		if (c=='#')
+			continue;
+		istringstream ss (line);
+		if (line.empty())
+			continue;
+		j++;
+	}
+	Nsnp = j;
+	inp.close();
+}
+
+void genotype::read_fam (string filename){
+	ifstream inp(filename.c_str());
+	if (!inp.is_open()){
+		cerr << "Error reading file "<< filename <<endl;
+		exit(1);
+	}
+	string line;
+	int j = 0 ;
+	int linenum = 0 ;
+	while(std::getline (inp, line)){
+		linenum ++;
+		char c = line[0];
+		if (c=='#')
+			continue;
+		istringstream ss (line);
+		if (line.empty())
+			continue;
+		j++;
+	}
+	Nindv = j;
+	inp.close();
+}
+
+void genotype::set_metadata() { 
+	wordsize = sizeof(char) * 8;
+	unitsize = 2;
+	unitsperword = wordsize/unitsize;
+	mask = 0;
+	for (int i = 0 ; i < unitsize; i++)
+		mask = mask |(0x1<<i);
+    nrow = Nsnp;
+    ncol = ceil(1.0*Nindv/unitsperword);
+}
+
+void genotype::read_bed_nomissing (string filename )  {
+   	ifstream ifs (filename.c_str(), ios::in|ios::binary);                                       
+   	char magic[3];
+	set_metadata ();
+    gtype =  new unsigned char[ncol];
+
+   	binary_read(ifs,magic);
+
+	segment_size_hori = floor(log(Nindv)/log(3)) - 2 ;
+	Nsegments_hori = ceil(Nsnp*1.0/(segment_size_hori*1.0));
+	p.resize(Nsegments_hori,std::vector<int>(Nindv));
+	int sum=0;
+	columnsum.resize (Nsnp);    
+
+	// Note that the coding of 0 and 2 can get flipped relative to plink because plink uses allele frequency (minor)
+	// allele to code a SNP as 0 or 1.
+	// This flipping does not matter for results.
+	vector<int> v (Nindv);
+	int y[4];
+	for (int i = 0 ; i < Nsnp; i++){
+		int horiz_seg_no = i/segment_size_hori ;
+	   	ifs.read (reinterpret_cast<char*>(gtype), ncol*sizeof(unsigned char));   
+    	for (int k = 0 ;k < ncol ; k++) {
+        	unsigned char c = gtype [k];
+			// Extract PLINK genotypes
+        	y[0] = (c)&mask;
+        	y[1] = (c>>2)&mask;
+        	y[2] = (c>>4)&mask;
+        	y[3] = (c>>6)&mask;
+			int j0 = k * unitsperword;
+			// Handle number of individuals not being a multiple of 4
+			int lmax = 4;
+			if (k == ncol - 1)  {
+				lmax = Nindv%4;
+				lmax = (lmax==0)?4:lmax;
+			}	
+			// Note  : Plink uses different values for coding genotypes
+			// Note  : Does not work for missing values
+			// To handle missing data it is recommended to write a separate function. This is easy to do.
+			// This will avoid the performance hit of checking for and handling missing values
+			for ( int l = 0 ; l < lmax; l++){
+				int j = j0 + l ;
+				int ver_seg_no = j/segment_size_ver ;
+				// Extract  PLINK coded genotype and convert into 0/1/2
+				// PLINK coding: 
+				// 00->0
+				// 01->missing
+				// 10->1
+				// 11->2
+				int val = y[l];
+				val-- ; 
+				val =  (val < 0 ) ? 0 :val ;
+				sum += val;
+				p[horiz_seg_no][j] = 3 * p[horiz_seg_no][j]  + val;
+			}
+
+    	}
+		columnsum[i] = sum;
+		sum = 0 ;
+	}
+	init_means(false);	
+
+	delete[] gtype;
+}
+
+//TODO: To be implemented
+void genotype::read_bed_missing (string filename )  {
+}
+
+void genotype::read_bed (string filename, bool allow_missing )  {
+	if (allow_missing)
+		read_bed_missing (filename);
+	else
+		read_bed_nomissing (filename);
+}
+
+void genotype::read_plink (std::string filenameprefix, bool allow_missing)  { 
+	
+	std::stringstream f1;  
+	f1 << filenameprefix << ".bim";
+	read_bim (f1.str());
+	std::stringstream f2;  
+	f2 << filenameprefix << ".fam";
+	read_fam (f2.str());
+	std::stringstream f3;  
+	f3 << filenameprefix << ".bed";
+	read_bed (f3.str(), allow_missing);
+}
+
 
 
 /* Redundant Functions

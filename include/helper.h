@@ -25,6 +25,7 @@ struct options{
 	bool memory_efficient;
 	bool fast_mode;
 	bool missing;
+	bool text_version;
 };
 
 template<typename T, typename U>
@@ -201,6 +202,7 @@ void parse_args(int argc, char const *argv[]){
 	command_line_opts.memory_efficient=false;
 	command_line_opts.fast_mode=true;
 	command_line_opts.missing=false;
+	command_line_opts.text_version = false;
 	
 
 	if(argc<3){
@@ -226,7 +228,7 @@ void parse_args(int argc, char const *argv[]){
 		command_line_opts.memory_efficient = cfg.getValueOfKey<bool>("memory_efficient",false);	
 		command_line_opts.fast_mode = cfg.getValueOfKey<bool>("fast_mode",true);
 		command_line_opts.missing = cfg.getValueOfKey<bool>("missing",false);	
-							
+		command_line_opts.text_version = cfg.getValueOfKey<bool>("text_version",false);							
 	}
 	else{
 		for (int i = 1; i < argc; i++) { 
@@ -272,6 +274,9 @@ void parse_args(int argc, char const *argv[]){
 				command_line_opts.missing=true;
 			else if(strcmp(argv[i],"-nfm")==0)
 				command_line_opts.fast_mode=false;
+			else if(strcmp(argv[i],"-txt")==0)
+				command_line_opts.text_version=true;
+			
 			else{
 				cout<<"Not Enough or Invalid arguments"<<endl;
 				cout<<"Correct Usage is "<<argv[0]<<" -g <genotype file> -k <num_of_evec> -m <max_iterations> -v (for debugmode) -a (for getting accuracy)"<<endl;
@@ -290,6 +295,9 @@ void parse_args(int argc, char const *argv[]){
 				command_line_opts.fast_mode=false;
 		else if(strcmp(argv[i],"-miss")==0)
 				command_line_opts.missing=true;
+		else if(strcmp(argv[i],"-txt")==0)
+				command_line_opts.text_version=true;
+			
 		}
 
 	}

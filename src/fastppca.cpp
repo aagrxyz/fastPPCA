@@ -51,6 +51,18 @@ int timelog (const char* message){
   return (printf ("[%06ld.%09ld] %s\n", ts.tv_sec, ts.tv_nsec, message));
 }
 
+void * malloc_double_align(size_t n, unsigned int a /*alignment*/, double *& output){
+    void *adres=NULL;
+    void *adres2=NULL;
+    adres=malloc(n*sizeof(double)+a);
+    size_t adr=(size_t)adres;
+    size_t adr2=adr+a-(adr&(a-1u)); 	// a valid address for a alignment
+    adres2=(void * ) adr2;
+    output=(double *)adres2;
+    return adres;                		// pointer to be used in free()
+}
+
+
 clock_t total_begin = clock();
 
 int MAX_ITER;
@@ -75,6 +87,7 @@ bool missing=false;
 
 bool fast_mode = true;
 
+bool text_version = false;
 void print_timenl () {
 	clock_t c = clock();
 	double t = double(c) / CLOCKS_PER_SEC;
@@ -89,23 +102,29 @@ void print_time () {
 
 void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtract_means){
 	
+	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
+		sum_op[k_iter]=op.col(k_iter).sum();
+	}
+
 	if(debug){
 		print_time (); 
 		cout <<"Starting mailman on premultiply"<<endl;
 		cout << "Nops = " << Ncol_op << "\t" <<g.Nsegments_hori << endl;
 		cout << "Segment size = " << g.segment_size_hori << endl;
 		cout << "Matrix size = " <<g.segment_size_hori<<"\t" <<g.Nindv << endl;
+		cout << "op = " <<  op.rows () << "\t" << op.cols () << endl;
+		cout << g.segment_size_ver << "\t" << g.Nsegments_ver << endl;
 	}
 
-	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-		sum_op[k_iter]=op.col(k_iter).sum();
-	}
 
 	for(int seg_iter=0;seg_iter<g.Nsegments_hori-1;seg_iter++){
-		if(memory_efficient)
-			mailman::fastmultiply3(g.segment_size_hori,g.Nindv,Ncol_op,g.p_eff[seg_iter],op,yint_m,partialsums,y_m,g.Nbits_hori);
-		else
-			mailman::fastmultiply2(g.segment_size_hori,g.Nindv,Ncol_op,g.p[seg_iter],op,yint_m,partialsums,y_m);
+		//TODO: Memory Effecient SSE FastMultipy
+		// if(memory_efficient)
+		// 	mailman::fastmultiply_memory_eff(g.segment_size_hori,g.Nindv,Ncol_op,g.p_eff[seg_iter],op,yint_m,partialsums,y_m,g.Nbits_hori);
+		// else
+		
+		mailman::fastmultiply_sse(g.segment_size_hori,g.Nindv,Ncol_op,g.p[seg_iter],op,yint_m,partialsums,y_m);
+		
 		int p_base = seg_iter*g.segment_size_hori; 
 		for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ){
 			for(int k_iter=0;k_iter<Ncol_op;k_iter++) 
@@ -114,20 +133,24 @@ void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtrac
 	}
 
 	int last_seg_size = (g.Nsnp%g.segment_size_hori !=0 ) ? g.Nsnp%g.segment_size_hori : g.segment_size_hori;
-	if(memory_efficient)
-		mailman::fastmultiply3(last_seg_size,g.Nindv,Ncol_op,g.p_eff[g.Nsegments_hori-1],op,yint_m,partialsums,y_m,g.Nbits_hori);
-	else
-		mailman::fastmultiply2(last_seg_size,g.Nindv,Ncol_op,g.p[g.Nsegments_hori-1],op,yint_m,partialsums,y_m);	
+	//TODO: Memory Effecient SSE FastMultipy	
+	// if(memory_efficient)
+	// 	mailman::fastmultiply_memory_eff(last_seg_size,g.Nindv,Ncol_op,g.p_eff[g.Nsegments_hori-1],op,yint_m,partialsums,y_m,g.Nbits_hori);
+	// else
+	mailman::fastmultiply_sse(last_seg_size,g.Nindv,Ncol_op,g.p[g.Nsegments_hori-1],op,yint_m,partialsums,y_m);	
+	
+	if(debug){
+		print_time (); 
+		cout <<"Ending mailman on premultiply"<<endl;
+	}
+
 	int p_base = (g.Nsegments_hori-1)*g.segment_size_hori;
 	for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++) 
 			res(p_iter,k_iter) = y_m[p_iter-p_base][k_iter];
 	}
 
-	if(debug){
-		print_time (); 
-		cout <<"Ending mailman on premultiply"<<endl;
-	}
+
 	if(!subtract_means)
 		return;
 	for(int p_iter=0;p_iter<p;p_iter++){
@@ -160,29 +183,12 @@ void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool 
 	int Ncol_op = Nrows_op;
 
 
-	for(int seg_iter=0;seg_iter<g.Nsegments_ver-1;seg_iter++){
-		if(memory_efficient)
-			mailman::fastmultiply3(g.segment_size_ver,g.Nsnp,Ncol_op,g.q_eff[seg_iter],op,yint_e,partialsums,y_e,g.Nbits_ver);
-		else
-			mailman::fastmultiply2(g.segment_size_ver,g.Nsnp,Ncol_op,g.q[seg_iter],op,yint_e,partialsums,y_e);
-		int n_base = seg_iter*g.segment_size_ver; 
-		for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++)  {
-			for(int k_iter=0;k_iter<Ncol_op;k_iter++)
-				res(k_iter,n_iter) = y_e[n_iter-n_base][k_iter];
-		}
+	int seg_iter;
+	for(seg_iter=0;seg_iter<g.Nsegments_hori-1;seg_iter++){
+		mailman::fastmultiply_pre_sse(g.segment_size_hori,g.Nindv,Ncol_op, seg_iter * g.segment_size_hori, g.p[seg_iter],op,yint_e,partialsums,y_e);
 	}
-
-
-	int last_seg_size = (g.Nindv%g.segment_size_ver !=0 ) ? g.Nindv%g.segment_size_ver : g.segment_size_ver;
-	if(memory_efficient)
-		mailman::fastmultiply3(last_seg_size,g.Nsnp,Ncol_op,g.q_eff[g.Nsegments_ver-1],op,yint_e,partialsums,y_e,g.Nbits_ver);
-	else
-		mailman::fastmultiply2(last_seg_size,g.Nsnp,Ncol_op,g.q[g.Nsegments_ver-1],op,yint_e,partialsums,y_e);	
-	int n_base = (g.Nsegments_ver-1)*g.segment_size_ver; 
-	for(int n_iter=n_base; (n_iter<n_base+g.segment_size_ver) && (n_iter<g.Nindv) ; n_iter++)  {
-		for(int k_iter=0;k_iter<Ncol_op;k_iter++)
-			res(k_iter,n_iter) = y_e[n_iter-n_base][k_iter];
-	}
+	int last_seg_size = (g.Nsnp%g.segment_size_hori !=0 ) ? g.Nsnp%g.segment_size_hori : g.segment_size_hori;
+	mailman::fastmultiply_pre_sse (last_seg_size,g.Nindv,Ncol_op, seg_iter * g.segment_size_hori, g.p[seg_iter],op,yint_e,partialsums,y_e);
 
 
 	if(debug){
@@ -190,6 +196,13 @@ void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool 
 		cout <<"Ending mailman on postmultiply"<<endl;
 	}
 
+	for(int n_iter=0; n_iter<n; n_iter++)  {
+		for(int k_iter=0;k_iter<Ncol_op;k_iter++) {
+			res(k_iter,n_iter) = y_e[n_iter][k_iter];
+			y_e[n_iter][k_iter] = 0;
+		}
+	}
+	
 	if(!subtract_means)
 		return;
 	double *sums_elements = new double[Ncol_op];
@@ -449,7 +462,7 @@ void print_vals(){
 		c_file.close();
 		ofstream x_file;
 		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals.txt")).c_str());
-		x_file<<x<<endl;
+		x_file<<x_k<<endl;
 		x_file.close();
 	}
 }
@@ -464,16 +477,18 @@ int main(int argc, char const *argv[]){
 
 	parse_args(argc,argv);
 
-	memory_efficient = command_line_opts.memory_efficient;
+	//TODO: Memory Effecient Version
+	// memory_efficient = command_line_opts.memory_efficient;
+	text_version = command_line_opts.text_version;
     fast_mode = command_line_opts.fast_mode;
 	missing = command_line_opts.missing;
 
 	
 	if(fast_mode){
-		if(memory_efficient)
-			g.read_genotype_eff(command_line_opts.GENOTYPE_FILE_PATH,missing);	
-		else
+		if(text_version)
 			g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH,missing);
+		else
+			g.read_plink(command_line_opts.GENOTYPE_FILE_PATH,missing);	
 	}
 	else
 		g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH,missing);	
@@ -500,34 +515,38 @@ int main(int argc, char const *argv[]){
 	clock_t io_end = clock();
 
 	//TODO: Initialization of c
-
 	c = MatrixXdr::Random(p,k);
 
 
 	// Initial intermediate data structures
 	blocksize = k;
 	int hsegsize = g.segment_size_hori; 	// = log_3(n)
-	int hsize = pow(3,hsegsize);		// 
-	int vsegsize = g.segment_size_ver; 	// = log_3(p)
-	int vsize = pow(3,vsegsize);		// 
+	int hsize = pow(3,hsegsize);		 
+	int vsegsize = g.segment_size_ver; 		// = log_3(p)
+	int vsize = pow(3,vsegsize);		 
 
 	partialsums = new double [blocksize];
 	sum_op = new double[blocksize];
 
-	yint_e = new double [vsize*blocksize];
+	yint_e = new double [hsize*blocksize];
 	yint_m = new double [hsize*blocksize];
-	y_e  = new double*[vsegsize];
-	for (int i = 0 ; i < vsegsize ; i++)
+	memset (yint_m, 0, hsize*blocksize * sizeof(double));
+	memset (yint_e, 0, hsize*blocksize * sizeof(double));
+
+	y_e  = new double*[g.Nindv];
+	for (int i = 0 ; i < g.Nindv ; i++) {
 		y_e[i] = new double[blocksize];
+		memset (y_e[i], 0, blocksize * sizeof(double));
+	}
+
 	y_m = new double*[hsegsize];
 	for (int i = 0 ; i < hsegsize ; i++)
 		y_m[i] = new double[blocksize];
-	
 
-	
 	for(int i=0;i<p;i++)
 		means(i,0) = g.get_col_mean(i);
-	
+		
+
 	ofstream c_file;
 	if(debug){
 		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals_orig.txt")).c_str());
@@ -627,7 +646,7 @@ int main(int argc, char const *argv[]){
 		delete[] y_m [i]; 
 	delete[] y_m;
 
-	for (int i  = 0 ; i < vsegsize; i++)
+	for (int i  = 0 ; i < g.Nindv; i++)
 		delete[] y_e[i]; 
 	delete[] y_e;
 
