@@ -53,7 +53,7 @@ The values in the brackets are the command line flags for running the code witho
 * var_normalize (-vn) : The flag stating whether to perform varinance normalization or not (default: false).
 * fast_mode (-nfm) : The flag whether to use a fast mode for the EM algorithm(default: true). Note: Setting the -nfm (NOT fast_mode) at command line will use a slow version of EM.
 * missing (-miss) : This flag states whether there is any missing data present in the genotype matrix or not. 
-* text_version (-txt) : This flag makes the input genotype file to be in the text format as described below. If not used, plink format will be used.
+* text_version (-txt) : This flag makes the input genotype file to be in the text format as described below. If not used, plink format will be used. (default: false)
 
 ```
 
