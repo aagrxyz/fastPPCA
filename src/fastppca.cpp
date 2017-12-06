@@ -449,20 +449,24 @@ void print_vals(){
 		eval_file << std::setprecision(15)<< (b_svd.singularValues())(kk)<<endl;
 	eval_file.close();
 
-	d_k = MatrixXdr::Zero(k_orig,k_orig);
-	for(int kk =0 ; kk < k_orig ; kk++)
-		d_k(kk,kk)  =(b_svd.singularValues())(kk);
-
-	MatrixXdr x_k;
-	x_k = d_k * (v_k.transpose());
+	ofstream proj_file;
+	proj_file.open((string(command_line_opts.OUTPUT_PATH) + string("projections.txt")).c_str());
+	proj_file << std::setprecision(15)<< v_k<<endl;
+	proj_file.close();
 	if(debug){
 		ofstream c_file;
 		c_file.open((string(command_line_opts.OUTPUT_PATH)+string("cvals.txt")).c_str());
 		c_file<<c<<endl;
 		c_file.close();
+		
+		d_k = MatrixXdr::Zero(k_orig,k_orig);
+		for(int kk =0 ; kk < k_orig ; kk++)
+		d_k(kk,kk)  =(b_svd.singularValues())(kk);
+		MatrixXdr x_k;
+		x_k = d_k * (v_k.transpose());
 		ofstream x_file;
 		x_file.open((string(command_line_opts.OUTPUT_PATH) + string("xvals.txt")).c_str());
-		x_file<<x_k<<endl;
+		x_file<<x_k.transpose()<<endl;
 		x_file.close();
 	}
 }
@@ -500,6 +504,8 @@ int main(int argc, char const *argv[]){
 	var_normalize = command_line_opts.var_normalize;
 	accelerated_em = command_line_opts.accelerated_em;
 	k = k_orig + command_line_opts.l;
+	k = (int)ceil(k/10.0)*10;
+	command_line_opts.l = k - k_orig;
 	p = g.Nsnp;
 	n = g.Nindv;
 	convergence_limit = command_line_opts.convergence_limit;

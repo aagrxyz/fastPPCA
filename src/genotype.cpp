@@ -335,6 +335,7 @@ void genotype::read_bed_nomissing (string filename )  {
    	ifstream ifs (filename.c_str(), ios::in|ios::binary);                                       
    	char magic[3];
 	set_metadata ();
+
     gtype =  new unsigned char[ncol];
 
    	binary_read(ifs,magic);
@@ -342,6 +343,7 @@ void genotype::read_bed_nomissing (string filename )  {
 	segment_size_hori = floor(log(Nindv)/log(3)) - 2 ;
 	Nsegments_hori = ceil(Nsnp*1.0/(segment_size_hori*1.0));
 	p.resize(Nsegments_hori,std::vector<int>(Nindv));
+	
 	int sum=0;
 	columnsum.resize (Nsnp);    
 
@@ -398,6 +400,75 @@ void genotype::read_bed_nomissing (string filename )  {
 
 //TODO: To be implemented
 void genotype::read_bed_missing (string filename )  {
+
+	ifstream ifs (filename.c_str(), ios::in|ios::binary);                                       
+   	char magic[3];
+	set_metadata ();
+    gtype =  new unsigned char[ncol];
+
+   	binary_read(ifs,magic);
+
+	segment_size_hori = floor(log(Nindv)/log(3)) - 2 ;
+	Nsegments_hori = ceil(Nsnp*1.0/(segment_size_hori*1.0));
+	p.resize(Nsegments_hori,std::vector<int>(Nindv));
+	not_O_i.resize(Nsnp);
+	not_O_j.resize(Nindv);	
+	
+	int sum=0;
+	columnsum.resize (Nsnp);    
+
+	// Note that the coding of 0 and 2 can get flipped relative to plink because plink uses allele frequency (minor)
+	// allele to code a SNP as 0 or 1.
+	// This flipping does not matter for results.
+	vector<int> v (Nindv);
+	int y[4];
+	for (int i = 0 ; i < Nsnp; i++){
+		int horiz_seg_no = i/segment_size_hori ;
+	   	ifs.read (reinterpret_cast<char*>(gtype), ncol*sizeof(unsigned char));   
+    	for (int k = 0 ;k < ncol ; k++) {
+        	unsigned char c = gtype [k];
+			// Extract PLINK genotypes
+        	y[0] = (c)&mask;
+        	y[1] = (c>>2)&mask;
+        	y[2] = (c>>4)&mask;
+        	y[3] = (c>>6)&mask;
+			int j0 = k * unitsperword;
+			// Handle number of individuals not being a multiple of 4
+			int lmax = 4;
+			if (k == ncol - 1)  {
+				lmax = Nindv%4;
+				lmax = (lmax==0)?4:lmax;
+			}	
+			// Note  : Plink uses different values for coding genotypes
+			// Note  : Does not work for missing values
+			// To handle missing data it is recommended to write a separate function. This is easy to do.
+			// This will avoid the performance hit of checking for and handling missing values
+			for ( int l = 0 ; l < lmax; l++){
+				int j = j0 + l ;
+				int ver_seg_no = j/segment_size_ver ;
+				// Extract  PLINK coded genotype and convert into 0/1/2
+				// PLINK coding: 
+				// 00->0
+				// 01->missing
+				// 10->1
+				// 11->2
+				int val = y[l];
+				if(val==1){
+					not_O_i[i].push_back(j);
+					not_O_j[j].push_back(i);
+				}
+				val-- ; 
+				val =  (val < 0 ) ? 0 :val ;
+				sum += val;
+				p[horiz_seg_no][j] = 3 * p[horiz_seg_no][j]  + val;
+			}
+    	}
+		columnsum[i] = sum;
+		sum = 0 ;
+	}
+	init_means(false);	
+
+	delete[] gtype;
 }
 
 void genotype::read_bed (string filename, bool allow_missing )  {
