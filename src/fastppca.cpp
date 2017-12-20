@@ -565,11 +565,12 @@ int main(int argc, char const *argv[]){
 		printf("Read Matrix\n");
 	}
 
-	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
 	#ifdef SSE_SUPPORT
-		cout<<"Running Code with Optimized SSE FastMultiply"<<endl;
+		cout<<"Using Optimized SSE FastMultiply"<<endl;
 	#endif
 
+	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
+	
 	
 	clock_t it_begin = clock();
 	for(int i=0;i<MAX_ITER;i++){
