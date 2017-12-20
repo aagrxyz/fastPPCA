@@ -40,17 +40,15 @@ double **y_m;
 
 
 struct timespec t0;
-struct timespec
-elapsed (){
-  struct timespec ts;
-  clock_gettime (CLOCK_REALTIME, &ts);
-  if (ts.tv_nsec < t0.tv_nsec)
-    {
-      ts.tv_nsec = 1000000000 + ts.tv_nsec - t0.tv_nsec;
-      ts.tv_sec--;
-    }
-  ts.tv_sec -= t0.tv_sec;
-  return (ts);
+struct timespec elapsed (){
+	struct timespec ts;
+	clock_gettime (CLOCK_REALTIME, &ts);
+	if (ts.tv_nsec < t0.tv_nsec){
+		ts.tv_nsec = 1000000000 + ts.tv_nsec - t0.tv_nsec;
+		ts.tv_sec--;
+	}
+	ts.tv_sec -= t0.tv_sec;
+	return (ts);
 }
 
 int timelog (const char* message){
@@ -91,10 +89,9 @@ int accelerated_em=0;
 double convergence_limit;
 bool memory_efficient = false;
 bool missing=false;
-
 bool fast_mode = true;
-
 bool text_version = false;
+
 void print_timenl () {
 	clock_t c = clock();
 	double t = double(c) / CLOCKS_PER_SEC;
@@ -569,6 +566,9 @@ int main(int argc, char const *argv[]){
 	}
 
 	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
+	#ifdef SSE_SUPPORT
+		cout<<"Running Code with Optimized SSE FastMultiply"<<endl;
+	#endif
 
 	
 	clock_t it_begin = clock();
