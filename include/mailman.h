@@ -10,9 +10,7 @@
 
 namespace mailman {
 
-	// Efficient versions working on full matrix
-	void fastmultiply(int m, int n , int k, std::vector<int> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y){
-		
+	void fastmultiply_normal(int m, int n , int k, std::vector<int> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y){
 		for (int i = 0 ; i < n; i++)  {
 			int l = p[i]  ;
 			for (int j = 0 ; j < k ; j ++)
@@ -42,38 +40,36 @@ namespace mailman {
 			yint[l] = 0;
 	}
 
-	void fastmultiply_memory_eff(int m, int n , int k, std::vector<unsigned> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y,int Nbits){
-		
-		for (int i = 0 ; i < n; i++)  {
-			int l = extract_from_arr(i,Nbits,p);
-			for (int j = 0 ; j < k ; j ++)
-				yint[l*k + j] += x(i,j);
+	void fastmultiply_pre_normal(int m, int n , int k, int start, std::vector<int> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y){
+		int size1 = pow(3.,m);
+		memset (yint, 0, size1* sizeof(double));
 
-		}
-
-		int d = pow(3,m);
-		for (int j  = 0 ;  j < m ; j++)  {
-			d =d /3;
-			for (int l = 0; l < k ; l++)
-				c [l] = 0 ; 
-			for (int i = 0 ; i < d; i++) { 
-				for (int l = 0; l < k ; l++){
-					double z1 = yint[l + (i + d)*k];
-					double z2 = yint[l + (i +2*d)*k];
-					yint[l+(i+d)*k] = 0;
-					yint[l+(i+2*d)*k] = 0 ;
-					yint[l+i*k] = yint[l+i*k] + z1 + z2;
-					c[l] += (z1 + 2*z2);
+		int prefix = 1 ;
+		for (int i  = m - 1 ; i >= 0 ; i--) { 
+			int i1 = start + i;
+			for (int j = 0 ; j < prefix; j++) {
+				int offset0 = j*k;
+				int offset1 = (prefix + j )*k ;
+				int offset2 = (2 * prefix + j )*k ;
+				for (int l = 0 ; l < k ; l++){ 
+					yint[offset1  + l] = yint[offset0 + l] + x(i1,l);
+					yint[offset2 + l] = yint[offset0 + l] + 2 * x(i1 ,l);
 				}
 			}
-			for (int l = 0; l < k ; l++)
-				y[j][l] = c[l];
+			prefix *= 3;
 		}
-		for (int l = 0; l < k ; l++)
-			yint[l] = 0;
+
+		for (int i = 0 ; i < n; i++){
+			for (int l = 0 ; l < k  ; l++) {
+				y[i][l] += yint[l + p[i]*k];
+				// yint[l+ p[i]*k] = 0 ;
+			}
+		}
 	}
 
-	// k must be a multiple of 10
+	#ifdef SSE_SUPPORT
+
+		// k must be a multiple of 10
 	void fastmultiply_sse (int m, int n , int k, std::vector<int> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y){
 		__m128d x0, x2, x4, x6, x8;
 		__m128d y0, y2, y4, y6, y8;
@@ -207,34 +203,6 @@ namespace mailman {
 		for (int l = 0; l < k ; l++)
 			yint[l] = 0;
 	}
-
-	void fastmultiply_pre (int m, int n , int k, int start, std::vector<int> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y){
-		int size1 = pow(3.,m);
-		memset (yint, 0, size1* sizeof(double));
-
-		int prefix = 1 ;
-		for (int i  = m - 1 ; i >= 0 ; i--) { 
-			int i1 = start + i;
-			for (int j = 0 ; j < prefix; j++) {
-				int offset0 = j*k;
-				int offset1 = (prefix + j )*k ;
-				int offset2 = (2 * prefix + j )*k ;
-				for (int l = 0 ; l < k ; l++){ 
-					yint[offset1  + l] = yint[offset0 + l] + x(i1,l);
-					yint[offset2 + l] = yint[offset0 + l] + 2 * x(i1 ,l);
-				}
-			}
-			prefix *= 3;
-		}
-
-		for (int i = 0 ; i < n; i++){
-			for (int l = 0 ; l < k  ; l++) {
-				y[i][l] += yint[l + p[i]*k];
-				// yint[l+ p[i]*k] = 0 ;
-			}
-		}
-	}
-
 	void fastmultiply_pre_sse (int m, int n , int k, int start, std::vector<int> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y){
 		
 		int size1 = pow(3.,m);
@@ -331,6 +299,41 @@ namespace mailman {
 			}
 		}
 	}
+
+	#endif
+
+	/* Redundant Function 
+	void fastmultiply_memory_eff(int m, int n , int k, std::vector<unsigned> &p, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> &x, double *yint, double *c, double **y,int Nbits){
+		
+		for (int i = 0 ; i < n; i++)  {
+			int l = extract_from_arr(i,Nbits,p);
+			for (int j = 0 ; j < k ; j ++)
+				yint[l*k + j] += x(i,j);
+
+		}
+
+		int d = pow(3,m);
+		for (int j  = 0 ;  j < m ; j++)  {
+			d =d /3;
+			for (int l = 0; l < k ; l++)
+				c [l] = 0 ; 
+			for (int i = 0 ; i < d; i++) { 
+				for (int l = 0; l < k ; l++){
+					double z1 = yint[l + (i + d)*k];
+					double z2 = yint[l + (i +2*d)*k];
+					yint[l+(i+d)*k] = 0;
+					yint[l+(i+2*d)*k] = 0 ;
+					yint[l+i*k] = yint[l+i*k] + z1 + z2;
+					c[l] += (z1 + 2*z2);
+				}
+			}
+			for (int l = 0; l < k ; l++)
+				y[j][l] = c[l];
+		}
+		for (int l = 0; l < k ; l++)
+			yint[l] = 0;
+	}
+	*/
 
 }
 

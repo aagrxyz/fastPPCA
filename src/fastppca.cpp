@@ -15,6 +15,13 @@
 #include <Eigen/QR>
 #include "storage.h"
 
+#ifdef SSE_SUPPORT
+	#define fastmultiply fastmultiply_sse
+	#define fastmultiply_pre fastmultiply_pre_sse
+#else
+	#define fastmultiply fastmultiply_normal
+	#define fastmultiply_pre fastmultiply_pre_normal
+#endif
 
 using namespace Eigen;
 using namespace std;
@@ -123,7 +130,7 @@ void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtrac
 		// 	mailman::fastmultiply_memory_eff(g.segment_size_hori,g.Nindv,Ncol_op,g.p_eff[seg_iter],op,yint_m,partialsums,y_m,g.Nbits_hori);
 		// else
 		
-		mailman::fastmultiply_sse(g.segment_size_hori,g.Nindv,Ncol_op,g.p[seg_iter],op,yint_m,partialsums,y_m);
+		mailman::fastmultiply(g.segment_size_hori,g.Nindv,Ncol_op,g.p[seg_iter],op,yint_m,partialsums,y_m);
 		
 		int p_base = seg_iter*g.segment_size_hori; 
 		for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ){
@@ -137,7 +144,7 @@ void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtrac
 	// if(memory_efficient)
 	// 	mailman::fastmultiply_memory_eff(last_seg_size,g.Nindv,Ncol_op,g.p_eff[g.Nsegments_hori-1],op,yint_m,partialsums,y_m,g.Nbits_hori);
 	// else
-	mailman::fastmultiply_sse(last_seg_size,g.Nindv,Ncol_op,g.p[g.Nsegments_hori-1],op,yint_m,partialsums,y_m);	
+	mailman::fastmultiply(last_seg_size,g.Nindv,Ncol_op,g.p[g.Nsegments_hori-1],op,yint_m,partialsums,y_m);	
 	
 	if(debug){
 		print_time (); 
@@ -185,10 +192,10 @@ void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool 
 
 	int seg_iter;
 	for(seg_iter=0;seg_iter<g.Nsegments_hori-1;seg_iter++){
-		mailman::fastmultiply_pre_sse(g.segment_size_hori,g.Nindv,Ncol_op, seg_iter * g.segment_size_hori, g.p[seg_iter],op,yint_e,partialsums,y_e);
+		mailman::fastmultiply_pre(g.segment_size_hori,g.Nindv,Ncol_op, seg_iter * g.segment_size_hori, g.p[seg_iter],op,yint_e,partialsums,y_e);
 	}
 	int last_seg_size = (g.Nsnp%g.segment_size_hori !=0 ) ? g.Nsnp%g.segment_size_hori : g.segment_size_hori;
-	mailman::fastmultiply_pre_sse (last_seg_size,g.Nindv,Ncol_op, seg_iter * g.segment_size_hori, g.p[seg_iter],op,yint_e,partialsums,y_e);
+	mailman::fastmultiply_pre(last_seg_size,g.Nindv,Ncol_op, seg_iter * g.segment_size_hori, g.p[seg_iter],op,yint_e,partialsums,y_e);
 
 
 	if(debug){
