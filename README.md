@@ -25,9 +25,26 @@ git clone https://github.com/aman71197/fastPPCA.git
 cd fastPPCA
 mkdir build
 cd build
+```
+
+FastPPCA supports, [SSE](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions) instructions.
+
+If your architecure is Intel and supports SSE instructions, build with the cmake flag `-D SSE_SUPPORT=1` for an faster improved version as shown below.
+
+```
+cmake -D SSE_SUPPORT=1 ..
+make
+```
+
+Else just issue these commands below:
+
+```
 cmake ..
 make
 ```
+
+
+
 ## Documentation for fastPPCA
 
 After compiling the executable fastppca is present in the build directory.
