@@ -15,7 +15,7 @@
 #include <Eigen/QR>
 #include "storage.h"
 
-#ifdef SSE_SUPPORT
+#if SSE_SUPPORT==1
 	#define fastmultiply fastmultiply_sse
 	#define fastmultiply_pre fastmultiply_pre_sse
 #else
@@ -485,6 +485,10 @@ int main(int argc, char const *argv[]){
 
 	parse_args(argc,argv);
 
+	#if SSE_SUPPORT==1
+		cout<<"Using Optimized SSE FastMultiply"<<endl;
+	#endif
+
 	//TODO: Memory Effecient Version
 	// memory_efficient = command_line_opts.memory_efficient;
 	text_version = command_line_opts.text_version;
@@ -565,9 +569,7 @@ int main(int argc, char const *argv[]){
 		printf("Read Matrix\n");
 	}
 
-	#ifdef SSE_SUPPORT
-		cout<<"Using Optimized SSE FastMultiply"<<endl;
-	#endif
+	
 
 	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
 	

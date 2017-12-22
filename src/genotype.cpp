@@ -17,35 +17,30 @@ void genotype::init_means(bool is_missing){
 }
 
 void genotype::read_genotype_naive (std::string filename,bool allow_missing){
-	FILE* fp;
-	fp= fopen(filename.c_str(),"r");
-	int j=0;
-	int i=0;
-	char ch;
-	vector <bool> m;
-	vector <bool> l;
-	int sum=0;
-	int snp_file,indv_file;
-	int rd = fscanf(fp,"%d %d\n",&snp_file,&indv_file);
-	if(allow_missing){
-		not_O_i.resize(snp_file);
-		not_O_j.resize(indv_file);	
+	
+	ifstream ifs (filename.c_str(), ios::in);                                       
+	
+	std::string line;
+	std::getline(ifs, line);
+    std::istringstream iss(line);
+    if (!(iss >> Nsnp >> Nindv)) { 
+		cout<<"ERROR: Header with number of SNPs and individuals not present"<<endl; 
+		exit(-1);
 	}
 	
-    do{
-		int rd = fscanf(fp,"%c",&ch);
-		if(ch=='\n'){
-			i++;
-			msb.push_back(m);
-			lsb.push_back(l);
-			m.clear();
-			l.clear();
-			columnsum.push_back(sum);
-			sum=0;
-			j=0;
-		}
-		else{
-			int val = int(ch-'0');
+	if(allow_missing){
+		not_O_i.resize(Nsnp);
+		not_O_j.resize(Nindv);	
+	}
+
+	int i=0;
+
+	vector <bool> m;
+	vector <bool> l;
+	while(std::getline(ifs,line)){
+		int sum=0;
+		for(int j=0;j<line.size();j++){
+			int val = int(line[j]-'0');	
 			if(val==0){
 				l.push_back(false);
 				m.push_back(false);
@@ -71,13 +66,14 @@ void genotype::read_genotype_naive (std::string filename,bool allow_missing){
 				cout<<"If there is Missing data, run with -miss flag"<<endl;
 				exit(-1);				
 			}
-			j++;
 		}
-	}while(!feof(fp));
-	Nsnp = msb.size()-1;
-	Nindv = msb[0].size();
-	assert(snp_file==Nsnp);
-	assert(indv_file==Nindv);
+		i++;
+		columnsum.push_back(sum);
+		msb.push_back(m);
+		lsb.push_back(l);
+		m.clear();
+		l.clear();
+	}
 	init_means(allow_missing);
 }
 
@@ -210,15 +206,11 @@ void genotype::read_genotype_eff (std::string filename,bool allow_missing){
 double genotype::get_geno(int snpindex,int indvindex,bool var_normalize=false){
 	double m = msb[snpindex][indvindex];
 	double l = lsb[snpindex][indvindex];
-	if ((m*2+l)==3.0)
-		return 0.0;
-	else{
-		double geno = (m*2.0+l) - get_col_mean(snpindex);
-		if(var_normalize)
-			return geno/get_col_std(snpindex);
-		else
-			return geno;
-	}
+	double geno = (m*2.0+l) - get_col_mean(snpindex);
+	if(var_normalize)
+		return geno/get_col_std(snpindex);
+	else
+		return geno;
 }
 
 double genotype::get_col_mean(int snpindex){
