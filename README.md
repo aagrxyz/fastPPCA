@@ -26,13 +26,15 @@ cd fastPPCA
 mkdir build
 cd build
 ```
+By default, the release version is built, if you wish to build the debug version, build with cmake flag `-D DEBUG=1` as shown below.
 
 FastPPCA supports, [SSE](https://en.wikipedia.org/wiki/Streaming_SIMD_Extensions) instructions.
 
 If your architecure is Intel and supports SSE instructions, build with the cmake flag `-D SSE_SUPPORT=1` for an faster improved version as shown below.
 
+
 ```
-cmake -D SSE_SUPPORT=1 ..
+cmake -D SSE_SUPPORT=1 -D DEBUG=1 ..
 make
 ```
 
@@ -62,7 +64,7 @@ The values in the brackets are the command line flags for running the code witho
 * num_evec (-k) : The number of eigen vectors to output (default: 2)
 * l (-l) : The extra calculation to be performed so that k_effective  = k + l (default: 2)
 * max_iterations (-m) : The maximum number of iterations to run the EM for (default: 20)
-* debug (-v) : Enabling debug mode to output various debug informations (default: false)
+* debug (-v) : Enabling debug mode to output various debug informations (default: false). Need to build with DEBUG=1 as described above for this flag to work.
 * accuracy (-a) : Output the likelihood computation as a function of iterations (default: false)
 * convergence_limit (-cl) : The value of the threshold telling the algorithm that it has converged (default: -1, meaning no auto termination condition )
 * output_path (-o) : The output prefix along with the path where the results will be stored
@@ -71,6 +73,8 @@ The values in the brackets are the command line flags for running the code witho
 * fast_mode (-nfm) : The flag whether to use a fast mode for the EM algorithm(default: true). Note: Setting the -nfm (NOT fast_mode) at command line will use a slow version of EM.
 * missing (-miss) : This flag states whether there is any missing data present in the genotype matrix or not. 
 * text_version (-txt) : This flag makes the input genotype file to be in the text format as described below. If not used, plink format will be used. (default: false)
+* memory_efficient (-mem) : The flag states whether to use a memory effecient version for the EM algorithm or not. The memory efficient version is a little slow than the not efficient version (default: false)
+
 
 ```
 
@@ -107,6 +111,17 @@ Look at the example.geno file in the examples directory to get a better understa
 The inout can be in the plink binary format, as descibed at [Plink BED](https://www.cog-genomics.org/plink/1.9/input#bed)
 
 Make sure to set the text_version to false in the parameter file, or don't use the -txt command line flag, when running. 
+
+## TODO List:
+
+1. Add Missing version which runs on Naive EM.
+2. Memory Effecient version of Mailman EM
+3. Add Variance normalized version for Missing EM.
+4. Improvize the memory requirements for naive EM and not memory effecient code.
+5. Initialize C with gaussian distribution.
+6. Memory Effecient SSE Multiply
+
+
 
 ## Built With
 

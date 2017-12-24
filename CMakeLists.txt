@@ -10,4 +10,9 @@ IF (NOT DEFINED SSE_SUPPORT)
 ENDIF()
 ADD_DEFINITIONS(-DSSE_SUPPORT=${SSE_SUPPORT})
 
+IF (NOT DEFINED DEBUG)
+    SET(DEBUG 0)
+ENDIF()
+ADD_DEFINITIONS(-DDEBUG=${DEBUG})
+
 add_executable(fastppca src/fastppca.cpp src/genotype.cpp src/storage.cpp)

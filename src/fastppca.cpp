@@ -8,11 +8,13 @@
 #include <Eigen/Core>
 #include <Eigen/LU>
 #include <Eigen/SVD>
+#include <Eigen/QR>
+#include "time.h"
+
 #include "genotype.h"
 #include "mailman.h"
+#include "arguments.h"
 #include "helper.h"
-#include "time.h"
-#include <Eigen/QR>
 #include "storage.h"
 
 #if SSE_SUPPORT==1
@@ -32,7 +34,7 @@ typedef Matrix<double, Dynamic, Dynamic, RowMajor> MatrixXdr;
 //Intermediate Variables
 int blocksize;
 double *partialsums;
-double *sum_op;
+MatrixXdr sum_op; //(k,1)
 double *yint_e;
 double *yint_m;
 double **y_e;
@@ -40,38 +42,13 @@ double **y_m;
 
 
 struct timespec t0;
-struct timespec elapsed (){
-	struct timespec ts;
-	clock_gettime (CLOCK_REALTIME, &ts);
-	if (ts.tv_nsec < t0.tv_nsec){
-		ts.tv_nsec = 1000000000 + ts.tv_nsec - t0.tv_nsec;
-		ts.tv_sec--;
-	}
-	ts.tv_sec -= t0.tv_sec;
-	return (ts);
-}
-
-int timelog (const char* message){
-  struct timespec ts = elapsed ();
-  return (printf ("[%06ld.%09ld] %s\n", ts.tv_sec, ts.tv_nsec, message));
-}
-
-void * malloc_double_align(size_t n, unsigned int a /*alignment*/, double *& output){
-    void *adres=NULL;
-    void *adres2=NULL;
-    adres=malloc(n*sizeof(double)+a);
-    size_t adr=(size_t)adres;
-    size_t adr2=adr+a-(adr&(a-1u)); 	// a valid address for a alignment
-    adres2=(void * ) adr2;
-    output=(double *)adres2;
-    return adres;                		// pointer to be used in free()
-}
-
 
 clock_t total_begin = clock();
 
-int MAX_ITER;
 genotype g;
+MatrixXdr geno_matrix; //(p,n)
+
+int MAX_ITER;
 int k,p,n;
 int k_orig;
 
@@ -79,6 +56,7 @@ MatrixXdr c; //(p,k)
 MatrixXdr x; //(k,n)
 MatrixXdr v; //(p,k)
 MatrixXdr means; //(p,1)
+MatrixXdr stds; //(p,1)
 
 options command_line_opts;
 
@@ -92,43 +70,27 @@ bool missing=false;
 bool fast_mode = true;
 bool text_version = false;
 
-void print_timenl () {
-	clock_t c = clock();
-	double t = double(c) / CLOCKS_PER_SEC;
-	cout << "Time = " << t << endl ;	
-}
-
-void print_time () {
-	clock_t c = clock();
-	double t = double(c) / CLOCKS_PER_SEC;
-	cout << "Time = " << t  << " : ";	
-}
 
 void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtract_means){
 	
-	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-		sum_op[k_iter]=op.col(k_iter).sum();
-	}
+	sum_op = op.colwise().sum().transpose();	// (Ncol_op,1)
 
-	if(debug){
-		print_time (); 
-		cout <<"Starting mailman on premultiply"<<endl;
-		cout << "Nops = " << Ncol_op << "\t" <<g.Nsegments_hori << endl;
-		cout << "Segment size = " << g.segment_size_hori << endl;
-		cout << "Matrix size = " <<g.segment_size_hori<<"\t" <<g.Nindv << endl;
-		cout << "op = " <<  op.rows () << "\t" << op.cols () << endl;
-		cout << g.segment_size_ver << "\t" << g.Nsegments_ver << endl;
-	}
+	#if DEBUG==1
+		if(debug){
+			print_time (); 
+			cout <<"Starting mailman on premultiply"<<endl;
+			cout << "Nops = " << Ncol_op << "\t" <<g.Nsegments_hori << endl;
+			cout << "Segment size = " << g.segment_size_hori << endl;
+			cout << "Matrix size = " <<g.segment_size_hori<<"\t" <<g.Nindv << endl;
+			cout << "op = " <<  op.rows () << "\t" << op.cols () << endl;
+		}
+	#endif
 
+
+	//TODO: Memory Effecient SSE FastMultipy
 
 	for(int seg_iter=0;seg_iter<g.Nsegments_hori-1;seg_iter++){
-		//TODO: Memory Effecient SSE FastMultipy
-		// if(memory_efficient)
-		// 	mailman::fastmultiply_memory_eff(g.segment_size_hori,g.Nindv,Ncol_op,g.p_eff[seg_iter],op,yint_m,partialsums,y_m,g.Nbits_hori);
-		// else
-		
 		mailman::fastmultiply(g.segment_size_hori,g.Nindv,Ncol_op,g.p[seg_iter],op,yint_m,partialsums,y_m);
-		
 		int p_base = seg_iter*g.segment_size_hori; 
 		for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++ ){
 			for(int k_iter=0;k_iter<Ncol_op;k_iter++) 
@@ -137,53 +99,44 @@ void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtrac
 	}
 
 	int last_seg_size = (g.Nsnp%g.segment_size_hori !=0 ) ? g.Nsnp%g.segment_size_hori : g.segment_size_hori;
-	//TODO: Memory Effecient SSE FastMultipy	
-	// if(memory_efficient)
-	// 	mailman::fastmultiply_memory_eff(last_seg_size,g.Nindv,Ncol_op,g.p_eff[g.Nsegments_hori-1],op,yint_m,partialsums,y_m,g.Nbits_hori);
-	// else
-	mailman::fastmultiply(last_seg_size,g.Nindv,Ncol_op,g.p[g.Nsegments_hori-1],op,yint_m,partialsums,y_m);	
-	
-	if(debug){
-		print_time (); 
-		cout <<"Ending mailman on premultiply"<<endl;
-	}
-
+	mailman::fastmultiply(last_seg_size,g.Nindv,Ncol_op,g.p[g.Nsegments_hori-1],op,yint_m,partialsums,y_m);		
 	int p_base = (g.Nsegments_hori-1)*g.segment_size_hori;
 	for(int p_iter=p_base; (p_iter<p_base+g.segment_size_hori) && (p_iter<g.Nsnp) ; p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++) 
 			res(p_iter,k_iter) = y_m[p_iter-p_base][k_iter];
 	}
 
+	#if DEBUG==1
+		if(debug){
+			print_time (); 
+			cout <<"Ending mailman on premultiply"<<endl;
+		}
+	#endif
+
 
 	if(!subtract_means)
 		return;
-	for(int p_iter=0;p_iter<p;p_iter++){
-		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-			res(p_iter,k_iter) = res(p_iter,k_iter) - (g.get_col_mean(p_iter)*sum_op[k_iter]);
-			if(var_normalize)
-				res(p_iter,k_iter) = res(p_iter,k_iter)/(g.get_col_std(p_iter));
-		}
-	}	
+
+	res = res - (means*(sum_op.transpose()));
+	if(var_normalize)
+		res = res.cwiseProduct(stds.cwiseInverse() * MatrixXdr::Constant(1,Ncol_op,1));	
 }
 
 void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool subtract_means){
+
 	MatrixXdr op;
 	op = op_orig.transpose();
 
-	if(var_normalize){
-		for(int p_iter=0;p_iter<p;p_iter++){
-			for(int k_iter=0;k_iter<Nrows_op;k_iter++)
-				op(p_iter,k_iter) = op(p_iter,k_iter) / (g.get_col_std(p_iter));
+	if(var_normalize && subtract_means)
+		op = op.cwiseProduct(stds.cwiseInverse() *  MatrixXdr::Constant(1,Nrows_op,1));
+
+	#if DEBUG==1
+		if(debug){
+			print_time (); 
+			cout <<"Starting mailman on postmultiply"<<endl;
 		}
-	}
-
-	if(debug){
-		print_time (); cout <<"Starting mailman on postmultiply"<<endl;
-		cout << "Nops = " << Nrows_op << "\t" <<g.Nsegments_ver << endl;
-		cout << "Segment size = " << g.segment_size_ver << endl;
-		cout << "Matrix size = " <<g.segment_size_ver <<"\t" <<g.Nsnp << endl;
-	}
-
+	#endif
+	
 	int Ncol_op = Nrows_op;
 
 
@@ -194,12 +147,6 @@ void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool 
 	int last_seg_size = (g.Nsnp%g.segment_size_hori !=0 ) ? g.Nsnp%g.segment_size_hori : g.segment_size_hori;
 	mailman::fastmultiply_pre(last_seg_size,g.Nindv,Ncol_op, seg_iter * g.segment_size_hori, g.p[seg_iter],op,yint_e,partialsums,y_e);
 
-
-	if(debug){
-		print_time (); 
-		cout <<"Ending mailman on postmultiply"<<endl;
-	}
-
 	for(int n_iter=0; n_iter<n; n_iter++)  {
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++) {
 			res(k_iter,n_iter) = y_e[n_iter][k_iter];
@@ -207,24 +154,22 @@ void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool 
 		}
 	}
 	
+	#if DEBUG==1
+		if(debug){
+			print_time (); 
+			cout <<"Ending mailman on postmultiply"<<endl;
+		}
+	#endif
+
+
 	if(!subtract_means)
 		return;
-	double *sums_elements = new double[Ncol_op];
-	memset (sums_elements, 0, Nrows_op * sizeof(int));
 
-	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-		double sum_to_calc=0.0;
-		for(int p_iter=0;p_iter<p;p_iter++)
-			sum_to_calc += g.get_col_mean(p_iter)*op(p_iter,k_iter);
-		sums_elements[k_iter] = sum_to_calc;
-	}
-	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
-		for(int n_iter=0;n_iter<n;n_iter++)
-			res(k_iter,n_iter) = res(k_iter,n_iter) - sums_elements[k_iter];
-	}
+	res = res - ((op.transpose()*means)*MatrixXdr::Constant(1,n,1));
+
 }
 
-void multiply_y_pre_naive(MatrixXdr &op, int Ncol_op ,MatrixXdr &res){
+void multiply_y_pre_naive_mem(MatrixXdr &op, int Ncol_op ,MatrixXdr &res){
 	for(int p_iter=0;p_iter<p;p_iter++){
 		for(int k_iter=0;k_iter<Ncol_op;k_iter++){
 			double temp=0;
@@ -235,7 +180,7 @@ void multiply_y_pre_naive(MatrixXdr &op, int Ncol_op ,MatrixXdr &res){
 	}
 }
 
-void multiply_y_post_naive(MatrixXdr &op, int Nrows_op ,MatrixXdr &res){
+void multiply_y_post_naive_mem(MatrixXdr &op, int Nrows_op ,MatrixXdr &res){
 	for(int n_iter=0;n_iter<n;n_iter++){
 		for(int k_iter=0;k_iter<Nrows_op;k_iter++){
 			double temp=0;
@@ -246,18 +191,34 @@ void multiply_y_post_naive(MatrixXdr &op, int Nrows_op ,MatrixXdr &res){
 	}
 }
 
+void multiply_y_pre_naive(MatrixXdr &op, int Ncol_op ,MatrixXdr &res){
+	res = geno_matrix * op;
+}
+
+void multiply_y_post_naive(MatrixXdr &op, int Nrows_op ,MatrixXdr &res){
+	res = op * geno_matrix;
+}
+
 void multiply_y_post(MatrixXdr &op, int Nrows_op ,MatrixXdr &res,bool subtract_means){
     if(fast_mode)
         multiply_y_post_fast(op,Nrows_op,res,subtract_means);
-    else
-        multiply_y_post_naive(op,Nrows_op,res);
+    else{
+		if(memory_efficient)
+			multiply_y_post_naive_mem(op,Nrows_op,res);
+		else
+			multiply_y_post_naive(op,Nrows_op,res);
+	}
 }
 
 void multiply_y_pre(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtract_means){
     if(fast_mode)
         multiply_y_pre_fast(op,Ncol_op,res,subtract_means);
-    else
-        multiply_y_pre_naive(op,Ncol_op,res);
+    else{
+		if(memory_efficient)
+			multiply_y_pre_naive_mem(op,Ncol_op,res);
+		else
+			multiply_y_pre_naive(op,Ncol_op,res);
+	}
 }
 
 pair<double,double> get_error_norm(MatrixXdr &c){
@@ -291,14 +252,8 @@ pair<double,double> get_error_norm(MatrixXdr &c){
     b_k = u_k * d_k * (v_k.transpose());
 
     if(fast_mode){
-        double temp_k=0.0;
-        double temp_l=0.0;
-        for(int k_iter=0;k_iter<k;k_iter++){
-            for(int n_iter=0;n_iter<n;n_iter++){
-                temp_k += b_k(k_iter,n_iter)*b(k_iter,n_iter);
-                temp_l += b_l(k_iter,n_iter)*b(k_iter,n_iter);
-            }
-        }
+        double temp_k = b_k.cwiseProduct(b).sum();
+        double temp_l = b_l.cwiseProduct(b).sum();
         double b_knorm = b_k.norm();
         double b_lnorm = b_l.norm();
         double norm_k = (b_knorm*b_knorm) - (2*temp_k);
@@ -308,8 +263,7 @@ pair<double,double> get_error_norm(MatrixXdr &c){
     else{
         MatrixXdr e_l(p,n);
         MatrixXdr e_k(p,n);
-        for(int p_iter=0;p_iter<p;p_iter++)
-        {
+        for(int p_iter=0;p_iter<p;p_iter++){
             for(int n_iter=0;n_iter<n;n_iter++){
                 e_l(p_iter,n_iter) = g.get_geno(p_iter,n_iter,var_normalize) - b_l(p_iter,n_iter);
                 e_k(p_iter,n_iter) = g.get_geno(p_iter,n_iter,var_normalize) - b_k(p_iter,n_iter);
@@ -323,26 +277,44 @@ pair<double,double> get_error_norm(MatrixXdr &c){
 }
 
 MatrixXdr run_EM_not_missing(MatrixXdr &c_orig){
-	if(debug){
-		print_time ();
-		cout << "Enter: run_EM_not_missing" << endl;
-	}
+	
+	#if DEBUG==1
+		if(debug){
+			print_time ();
+			cout << "Enter: run_EM_not_missing" << endl;
+		}
+	#endif
+
 	MatrixXdr c_temp(k,p);
 	MatrixXdr c_new(p,k);
 	c_temp = ( (c_orig.transpose()*c_orig).inverse() ) * (c_orig.transpose());
-	if(debug)
-		print_timenl ();
+	
+	#if DEBUG==1
+		if(debug){
+			print_timenl ();
+		}
+	#endif
+	
 	MatrixXdr x_fn(k,n);
 	multiply_y_post(c_temp,k,x_fn,true);
-	if(debug)
-		print_timenl ();
+	
+	#if DEBUG==1
+		if(debug){
+			print_timenl ();
+		}
+	#endif
+	
 	MatrixXdr x_temp(n,k);
 	x_temp = (x_fn.transpose()) * ((x_fn*(x_fn.transpose())).inverse());
 	multiply_y_pre(x_temp,k,c_new,true);
-	if(debug){
-		print_time ();
-		cout << "Exiting: run_EM_not_missing" << endl;
-	}
+	
+	#if DEBUG==1
+		if(debug){
+			print_time ();
+			cout << "Exiting: run_EM_not_missing" << endl;
+		}
+	#endif
+
 	return c_new;
 }
 
@@ -362,14 +334,8 @@ MatrixXdr run_EM_missing(MatrixXdr &c_orig){
 	multiply_y_post(c_fn,k,T,false);
 
 	MatrixXdr M_temp(k,1);
-	for(int k_iter=0;k_iter<k;k_iter++){
-		double sum=0.0;
-		for(int p_iter=0;p_iter<p;p_iter++){
-			sum+= c_orig(p_iter,k_iter)*g.get_col_mean(p_iter);
-		}
-		M_temp(k_iter,0) = sum;
-	}
-
+	M_temp = c_orig.transpose() *  means;
+	
 	for(int j=0;j<n;j++){
 		MatrixXdr D(k,k);
 		MatrixXdr M_to_remove(k,1);
@@ -393,9 +359,8 @@ MatrixXdr run_EM_missing(MatrixXdr &c_orig){
 	multiply_y_pre(mu_fn,k,T1,false);
 	MatrixXdr mu_sum(k,1);
 	mu_sum = MatrixXdr::Zero(k,1);
-	for(int j=0;j<n;j++)
-		mu_sum += mu.col(j);
-	
+	mu_sum = mu.rowwise().sum();
+
 	for(int i=0;i<p;i++){
 		MatrixXdr D(k,k);
 		MatrixXdr mu_to_remove(k,1);
@@ -465,7 +430,7 @@ void print_vals(){
 		
 		d_k = MatrixXdr::Zero(k_orig,k_orig);
 		for(int kk =0 ; kk < k_orig ; kk++)
-		d_k(kk,kk)  =(b_svd.singularValues())(kk);
+			d_k(kk,kk)  =(b_svd.singularValues())(kk);
 		MatrixXdr x_k;
 		x_k = d_k * (v_k.transpose());
 		ofstream x_file;
@@ -485,25 +450,38 @@ int main(int argc, char const *argv[]){
 
 	parse_args(argc,argv);
 
-	#if SSE_SUPPORT==1
-		cout<<"Using Optimized SSE FastMultiply"<<endl;
-	#endif
+	
+	//TODO: Memory Effecient Version of Mailman
 
-	//TODO: Memory Effecient Version
-	// memory_efficient = command_line_opts.memory_efficient;
+	memory_efficient = command_line_opts.memory_efficient;
 	text_version = command_line_opts.text_version;
     fast_mode = command_line_opts.fast_mode;
 	missing = command_line_opts.missing;
 
 	
-	if(fast_mode){
-		if(text_version)
-			g.read_genotype_mailman(command_line_opts.GENOTYPE_FILE_PATH,missing);
+	if(text_version){
+		if(fast_mode)
+			g.read_txt_mailman(command_line_opts.GENOTYPE_FILE_PATH,missing);
 		else
-			g.read_plink(command_line_opts.GENOTYPE_FILE_PATH,missing);	
+			g.read_txt_naive(command_line_opts.GENOTYPE_FILE_PATH,missing);
 	}
-	else
-		g.read_genotype_naive(command_line_opts.GENOTYPE_FILE_PATH,missing);	
+	else{
+		g.read_plink(command_line_opts.GENOTYPE_FILE_PATH,missing,fast_mode);
+	}
+
+	//TODO: Implement these codes.
+	if(missing && !fast_mode){
+		cout<<"Missing version works only with mailman i.e. fast mode\n EXITING..."<<endl;
+		exit(-1);
+	}
+	if(fast_mode && memory_efficient){
+		cout<<"Memory effecient version for mailman EM not yet implemented"<<endl;
+		cout<<"Ignoring Memory effecient Flag"<<endl;
+	}
+	if(missing && var_normalize){
+		cout<<"Missing version works only without variance normalization\n EXITING..."<<endl;
+		exit(-1);
+	}
 
     MAX_ITER =  command_line_opts.max_iterations ; 
 	k_orig = command_line_opts.num_of_evec ;
@@ -525,10 +503,16 @@ int main(int argc, char const *argv[]){
 	x.resize(k,n);
 	v.resize(p,k);
 	means.resize(p,1);
+	stds.resize(p,1);
 
+	if(!fast_mode && !memory_efficient){
+		geno_matrix.resize(p,n);
+		g.generate_eigen_geno(geno_matrix,var_normalize);
+	}
+	
 	clock_t io_end = clock();
 
-	//TODO: Initialization of c
+	//TODO: Initialization of c with gaussian distribution
 	c = MatrixXdr::Random(p,k);
 
 
@@ -540,7 +524,6 @@ int main(int argc, char const *argv[]){
 	int vsize = pow(3,vsegsize);		 
 
 	partialsums = new double [blocksize];
-	sum_op = new double[blocksize];
 
 	yint_e = new double [hsize*blocksize];
 	yint_m = new double [hsize*blocksize];
@@ -557,8 +540,10 @@ int main(int argc, char const *argv[]){
 	for (int i = 0 ; i < hsegsize ; i++)
 		y_m[i] = new double[blocksize];
 
-	for(int i=0;i<p;i++)
+	for(int i=0;i<p;i++){
 		means(i,0) = g.get_col_mean(i);
+		stds(i,0) = g.get_col_std(i);
+	}
 		
 
 	ofstream c_file;
@@ -569,9 +554,13 @@ int main(int argc, char const *argv[]){
 		printf("Read Matrix\n");
 	}
 
-	
-
 	cout<<"Running on Dataset of "<<g.Nsnp<<" SNPs and "<<g.Nindv<<" Individuals"<<endl;
+
+	#if SSE_SUPPORT==1
+		if(fast_mode)
+			cout<<"Using Optimized SSE FastMultiply"<<endl;
+	#endif
+
 	
 	
 	clock_t it_begin = clock();
@@ -584,16 +573,20 @@ int main(int argc, char const *argv[]){
 			cout << "*********** Begin epoch " << i << "***********" << endl;
 		}
 		if(accelerated_em!=0){
-			if(debug){
-				print_time();
-				cout << "Before EM" << endl;
-			}
+			#if DEBUG==1
+				if(debug){
+					print_time();
+					cout << "Before EM" << endl;
+				}
+			#endif
 			c1 = run_EM(c);
 			c2 = run_EM(c1);
-			if(debug){
-				print_time(); 
-				cout << "After EM but before acceleration" << endl;
-			}
+			#if DEBUG==1
+				if(debug){
+					print_time(); 
+					cout << "After EM but before acceleration" << endl;
+				}
+			#endif
 			r = c1-c;
 			v = (c2-c1) - r;
 			a = -1.0 * r.norm() / (v.norm()) ;
@@ -629,7 +622,7 @@ int main(int argc, char const *argv[]){
 			pair<double,double> e = get_error_norm(c);
 			prevnll = e.second;
 			if(check_accuracy) 
-				cout<<"Iteration "<<i+1<<"  "<<e.first<<"  "<<e.second<<endl;
+				cout<<"Iteration "<<i+1<<"  "<<std::setprecision(15)<<e.first<<"  "<<e.second<<endl;
 			if(abs(e.first-prev_error.first)<=convergence_limit){
 				cout<<"Breaking after "<<i+1<<" iterations"<<endl;
 				break;
@@ -654,7 +647,6 @@ int main(int argc, char const *argv[]){
 
 
 	delete[] partialsums;
-	delete[] sum_op;
 	delete[] yint_e; 
 	delete[] yint_m;
 

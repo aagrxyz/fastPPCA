@@ -1,10 +1,4 @@
-*
-*.out
-scripts/
-src_bit_vector
-src_old
-.vscode
-
+/*
 !CMakeLists.txt
 !/examples
 !/.git
