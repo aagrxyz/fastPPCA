@@ -7,6 +7,9 @@
 #include <Eigen/SVD>
 #include <bits/stdc++.h>
 #include "storage.h"
+#include <assert.h>
+#include <emmintrin.h>
+
 
 namespace mailman {
 

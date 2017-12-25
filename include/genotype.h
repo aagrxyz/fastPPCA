@@ -16,8 +16,6 @@ class genotype {
 	
 	public:	
 
-		Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> geno_matrix;
-		
 		unsigned char mask;
     	int wordsize;
 	    unsigned int unitsperword;
