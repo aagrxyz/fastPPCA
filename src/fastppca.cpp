@@ -34,7 +34,7 @@ typedef Matrix<double, Dynamic, Dynamic, RowMajor> MatrixXdr;
 //Intermediate Variables
 int blocksize;
 double *partialsums;
-MatrixXdr sum_op; //(k,1)
+double *sum_op;		
 double *yint_e;
 double *yint_m;
 double **y_e;
@@ -73,7 +73,9 @@ bool text_version = false;
 
 void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtract_means){
 	
-	sum_op = op.colwise().sum().transpose();	// (Ncol_op,1)
+	for(int k_iter=0;k_iter<Ncol_op;k_iter++){
+		sum_op[k_iter]=op.col(k_iter).sum();		
+	}
 
 	#if DEBUG==1
 		if(debug){
@@ -117,9 +119,14 @@ void multiply_y_pre_fast(MatrixXdr &op, int Ncol_op ,MatrixXdr &res,bool subtrac
 	if(!subtract_means)
 		return;
 
-	res = res - (means*(sum_op.transpose()));
-	if(var_normalize)
-		res = res.cwiseProduct(stds.cwiseInverse() * MatrixXdr::Constant(1,Ncol_op,1));	
+	for(int p_iter=0;p_iter<p;p_iter++){
+ 		for(int k_iter=0;k_iter<Ncol_op;k_iter++){		 
+			res(p_iter,k_iter) = res(p_iter,k_iter) - (g.get_col_mean(p_iter)*sum_op[k_iter]);
+			if(var_normalize)
+				res(p_iter,k_iter) = res(p_iter,k_iter)/(g.get_col_std(p_iter));		
+ 		}		
+ 	}	
+
 }
 
 void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool subtract_means){
@@ -127,8 +134,12 @@ void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool 
 	MatrixXdr op;
 	op = op_orig.transpose();
 
-	if(var_normalize && subtract_means)
-		op = op.cwiseProduct(stds.cwiseInverse() *  MatrixXdr::Constant(1,Nrows_op,1));
+	if(var_normalize && subtract_means){
+		for(int p_iter=0;p_iter<p;p_iter++){
+			for(int k_iter=0;k_iter<Nrows_op;k_iter++)		
+				op(p_iter,k_iter) = op(p_iter,k_iter) / (g.get_col_std(p_iter));		
+		}		
+	}
 
 	#if DEBUG==1
 		if(debug){
@@ -165,7 +176,20 @@ void multiply_y_post_fast(MatrixXdr &op_orig, int Nrows_op, MatrixXdr &res,bool 
 	if(!subtract_means)
 		return;
 
-	res = res - ((op.transpose()*means)*MatrixXdr::Constant(1,n,1));
+	double *sums_elements = new double[Ncol_op];
+ 	memset (sums_elements, 0, Nrows_op * sizeof(int));
+
+ 	for(int k_iter=0;k_iter<Ncol_op;k_iter++){		
+ 		double sum_to_calc=0.0;		
+ 		for(int p_iter=0;p_iter<p;p_iter++)		
+ 			sum_to_calc += g.get_col_mean(p_iter)*op(p_iter,k_iter);		
+ 		sums_elements[k_iter] = sum_to_calc;		
+ 	}		
+ 	for(int k_iter=0;k_iter<Ncol_op;k_iter++){		
+ 		for(int n_iter=0;n_iter<n;n_iter++)		
+ 			res(k_iter,n_iter) = res(k_iter,n_iter) - sums_elements[k_iter];		
+ 	}
+
 
 }
 
@@ -524,7 +548,7 @@ int main(int argc, char const *argv[]){
 	int vsize = pow(3,vsegsize);		 
 
 	partialsums = new double [blocksize];
-
+	sum_op = new double[blocksize];
 	yint_e = new double [hsize*blocksize];
 	yint_m = new double [hsize*blocksize];
 	memset (yint_m, 0, hsize*blocksize * sizeof(double));
@@ -645,7 +669,7 @@ int main(int argc, char const *argv[]){
 	double total_time = double(total_end - total_begin) / CLOCKS_PER_SEC;
 	cout<<"IO Time:  "<< io_time << "\nAVG Iteration Time:  "<<avg_it_time<<"\nTotal runtime:   "<<total_time<<endl;
 
-
+	delete[] sum_op;
 	delete[] partialsums;
 	delete[] yint_e; 
 	delete[] yint_m;
