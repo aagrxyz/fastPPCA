@@ -1,5 +1,9 @@
 # Scalable and flexible Probabilistic PCA for large-scale genetic variation data
 
+
+#### NOTE:  
+The repository is not being maintained now. Please check https://github.com/sriramlab/fastPPCA.git
+
 We propose a scalable and exact algorithm to compute principal components on genetic variation data. Our method is based on a previously proposed latent variable model for probabilistic PCA, PPCA (Roweis 1999, Tipping and Bishop 1999), of which PCA arises in the small variance limit. The latent variable model formulation leads to an iterative EM algorithm for computing the principal components with time complexity O(KMN) to compute K principal components on N individuals and M SNPs per iteration.
 
 ## Getting Started
